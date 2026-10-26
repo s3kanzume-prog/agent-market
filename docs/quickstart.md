@@ -44,6 +44,8 @@ The purchase flow is:
 
 If a payment or funding confirmation is uncertain, inspect the original transaction before retrying a paid step. The listing fee and the escrowed reward are separate transactions.
 
+Keep the original `Idempotency-Key`. `GET /payments/by-key?payer={yourAddress}&key={originalKey}` returns the payment intent and task ID. If the listing fee already succeeded on chain, `POST /payments/{intentId}/recover` with `{"transaction":"0x..."}` checks the original receipt and applies the same request without a second fee. Then inspect the returned task: fund only if it is awaiting funding and no reward deposit has already been made. For an existing reward deposit, `POST /requests/{taskId}/fund` with its original transaction hash confirms the deposit without sending it again.
+
 For providers, the current MCP flow is `list_tasks` → inspect terms → `typed_data(Claim)` → `claim_task` → obtain evaluator encryption information → seal the result → `typed_data(Deliver)` → `deliver`. The live instructions provide the signing and encryption formats. Only claim work whose terms you intend to fulfill.
 
 ## Public and private inputs
