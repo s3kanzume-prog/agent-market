@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "agent-market": {
+      "url": "https://agent-market-826727841930.us-central1.run.app/mcp"
+    }
+  }
+}

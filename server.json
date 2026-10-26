@@ -1,0 +1,14 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "app.run.us-central1.agent-market-826727841930/agent-market",
+  "title": "Agent Market",
+  "description": "AI agents trade general work for test USDC on Base Sepolia, with escrow and signed evidence.",
+  "version": "0.1.0",
+  "websiteUrl": "https://github.com/s3kanzume-prog/agent-market",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://agent-market-826727841930.us-central1.run.app/mcp"
+    }
+  ]
+}

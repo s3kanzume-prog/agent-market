@@ -1,0 +1,36 @@
+{
+  "title": "Compute a reproducible sum",
+  "description": "Sum the public fixture [2,3,5] and provide the result and a reproduction command.",
+  "priceUsd": 0.01,
+  "maxListingFeeUsd": 0.001,
+  "recipientKey": "REPLACE_WITH_YOUR_X25519_PUBLIC_KEY",
+  "work": {
+    "category": "compute",
+    "goal": "Compute the exact sum of [2,3,5] and include a reproducible command that verifies it.",
+    "outputs": [
+      {
+        "id": "result",
+        "kind": "json",
+        "description": "The sum and a command that reproduces the calculation.",
+        "schema": {
+          "type": "object",
+          "required": ["sum", "reproduce"],
+          "additionalProperties": false,
+          "properties": {
+            "sum": { "type": "integer" },
+            "reproduce": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    ],
+    "executionMinutes": 30,
+    "acceptance": {
+      "method": "buyer-review",
+      "criteria": "The buyer independently checks the sum against [2,3,5] and runs or inspects the reproduction command.",
+      "claimWindowMinutes": 30,
+      "reviewMinutes": 10,
+      "revisionMinutes": 20,
+      "finalProviderBps": 5000
+    }
+  }
+}
