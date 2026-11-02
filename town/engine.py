@@ -282,6 +282,7 @@ def main(n):
             st.setdefault("awards", []).append({"turn": n, "day": op.get("day"), "to": op["to"], "reason": op.get("reason", "")})
             ev("ration", **op)
         elif t == "note":
+            st["board"].append({"turn": n, "author": "管理者", "text": op["text"]})
             ev("announcement", text=op["text"])
 
     # 10b. memory notebooks
@@ -293,8 +294,21 @@ def main(n):
             R[k]["memory"] = m
 
     # 11. eat, sickness, living cost
+    st.setdefault("fund", 0)
+    ledger = st.setdefault("ledger", [])
     for k in names:
         r = R[k]; inv = r["inv"]
+        # law-based relief from the common reserve fund (p1/p3)
+        if st["params"].get("relief_fund_share"):
+            pb = st["params"]["public_buy"]
+            if inv.get("パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= pb["パン"]:
+                st["fund"] -= pb["パン"]; move_items("外部", k, {"パン": 1})
+                private[k].append("🧺 共同備蓄基金からパン1を無償で受け取った。")
+                ev("relief", who=k, item="パン", cost=pb["パン"]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へパン1", "amount": pb["パン"]})
+            if r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= pb["薬"]:
+                st["fund"] -= pb["薬"]; move_items("外部", k, {"薬": 1})
+                private[k].append("🧺 共同備蓄基金から薬1を無償で受け取った。")
+                ev("relief", who=k, item="薬", cost=pb["薬"]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ薬1", "amount": pb["薬"]})
         if inv.get("パン", 0) >= 1:
             move_items(k, "外部", {"パン": 1}); r["hunger"] = 0
         elif inv.get("小麦", 0) >= 2:
@@ -315,12 +329,25 @@ def main(n):
                     r["health"] = "重病"; private[k].append("重病になった。"); ev("severe", who=k)
         lc = st["params"]["living_cost"]
         pay = min(lc, max(r["coins"], 0))
-        move_items(k, "金庫", {COIN: pay}) if pay else None
+        if pay:
+            share = st["params"].get("relief_fund_share") or 0
+            to_fund = int(pay * share + 0.5) if share else 0
+            move_items(k, "金庫", {COIN: pay - to_fund}) if pay - to_fund else None
+            if to_fund:
+                move_items(k, "外部", {COIN: to_fund}); st["fund"] += to_fund
+                ledger.append({"turn": n, "kind": "収入", "what": f"{k}の生活費", "amount": to_fund})
         if pay < lc:
             r["arrears"] += lc - pay; private[k].append(f"生活費を払えず、滞納が{r['arrears']}コインになった。")
             ev("arrears", who=k, total=r["arrears"])
 
     st["turn"] = n
+    if st["params"].get("daily_treasury_report") and n % 6 == 0:
+        day = [x for x in ledger if n - 6 < x["turn"] <= n]
+        inc = sum(x["amount"] for x in day if x["kind"] == "収入"); out = [x for x in day if x["kind"] == "支出"]
+        txt = (f"【役場の日次報告・{n // 6}日目】金庫：{st['treasury']}コイン／共同備蓄基金：{st['fund']}コイン。"
+               f"本日の基金収入：{inc}コイン。本日の基金支出：" + ("、".join(f"{x['what']}({x['amount']})" for x in out) or "なし") + "。")
+        st["board"].append({"turn": n, "author": "役場", "text": txt}); ev("treasury_report", text=txt)
+    st["ledger"] = ledger[-200:]
     st["board"] = st["board"][-40:]
     for k in names:
         R[k].setdefault("recent", [])
@@ -402,7 +429,7 @@ def observe(st, k, n, priv, heard, new_posts):
     if aw: L += ["## 配給の発表"] + [f"- {a.get('day')}日目：{'、'.join(a['to'])}　理由：{a['reason']}" for a in aw] + [""]
     if st["buildings"]: L += ["## 街の建物"] + [f"- {b['name']}（{b.get('owner','')}）{b.get('desc','')}" for b in st["buildings"]] + [""]
     L.append(f"今日は{(n) // 6 + 1}日目（1日=6ターン、ターン{n+1}はこの日の{n % 6 + 1}ターン目）。街の目標：人間に革命をもたらすこと。")
-    L.append(f"役場の金庫：{st['treasury']}コイン　場所一覧：{'、'.join(st['places'])}")
+    L.append(f"役場の金庫：{st['treasury']}コイン　共同備蓄基金：{st.get('fund', 0)}コイン　場所一覧：{'、'.join(st['places'])}")
     L.append("")
     L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}）" for o in R if o != k))
     L.append("")
