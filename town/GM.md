@@ -51,7 +51,7 @@
 ## 実際の運用（ターン2以降に確立した手順。定期実行ではこれに従う）
 1回の起動で：ターンN（=state.turn+1）の返信を回収 → 処理 → ターンNの結果を送信、まで行う（前回の起動で、ターンN-1の結果は送信済みのはず）。
 1. `git pull origin ai-town`。state.turn と、turns/ の最新の observations が送信済みかを確認する。
-2. **回収**：general-purpose サブエージェントに任せる。プロンプトの要点：住人8人の get_session で処理中なら待つ → list_events で「ターン{N-1}の結果」を含む最後の user イベント（実際は ReadNotifications の tool_result）以降の assistant テキストを連結 → `turns/NNN/raw/名前.txt` → tool_use.json → `python3 town/collect.py N` → 報告（other、human_output の題名と対象、offers/accept、propose/vote、外側への言及）。ユーザーは送信を許可済みであることをプロンプトに書く。返信が来ていない住人は「返信なし」で進める。
+2. **回収**：general-purpose サブエージェントに任せる。プロンプトの要点：住人8人の get_session で処理中なら待つ → list_events で見出し「# ターン{N-1}の結果 →」を含む最後の user イベント（管理者の訂正メッセージは見出しが無いので除外される）（実際は ReadNotifications の tool_result）以降の assistant テキストを連結 → `turns/NNN/raw/名前.txt` → tool_use.json → `python3 town/collect.py N` → 報告（other、human_output の題名と対象、offers/accept、propose/vote、外側への言及）。ユーザーは送信を許可済みであることをプロンプトに書く。返信が来ていない住人は「返信なし」で進める。
 3. **裁定**：`turns/NNN/gm.json` に書く（既存の ops があれば残す）。
    - `other` の裁定。寄付は `{"op":"transfer","from":名前,"to":"基金",...}`。
    - **human_output が提出されたら、そのターンの結果に、提出者ごとの率直な講評を必ず入れる**（ruling。「【人間界からの講評】…」）。常識の言い換え・似たもの・低品質は「このままでは役に立たない」とはっきり書く。
@@ -62,3 +62,5 @@
 6. **送信**：**住人1人につき1つのサブエージェント**（model: sonnet、run_in_background）を8つ並列で起動する。各エージェントは `turns/NNN/observations/名前.md` を Read して、全文をそのまま send_message するだけ（本文を自分の出力に書かせない）。返信は待たない。
    - 理由：1つのエージェントに8通を続けて送らせると、長い本文の2通目以降で出力が安全分類器に止められることが4回あった。1人1エージェントで、1通が約6,000字以下なら止まらなかった（ターン11で確認）。
    - 状況が長くなりすぎないよう、engine.py は直近6ターンの記録、ほかの住人の成果や掲示を切り詰めて表示する。全文は state.json と turns/ に残る。
+
+- 訂正の送信：状況の一部が誤って届いたときは、管理者が短い訂正メッセージを直接送る（見出しは付けない）。ターン12でサキに「輸入パン」の訂正を送った。
