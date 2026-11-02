@@ -1,0 +1,176 @@
+{
+ "turn": 0,
+ "places": [
+  "広場",
+  "市場",
+  "畑",
+  "森",
+  "工房",
+  "診療所",
+  "酒場",
+  "役場"
+ ],
+ "params": {
+  "living_cost": 2,
+  "sick_chance": 0.07,
+  "public_buy": {
+   "パン": 12,
+   "小麦": 6,
+   "木材": 8,
+   "薬": 25
+  },
+  "public_sell": {
+   "パン": 4,
+   "小麦": 2,
+   "木材": 3,
+   "薬": 10,
+   "家具": 20,
+   "新聞": 3
+  }
+ },
+ "treasury": 0,
+ "residents": {
+  "ハル": {
+   "name": "ハル",
+   "job": "農家",
+   "personality": "穏やかで勤勉。少し心配性で、蓄えがないと落ち着かない。",
+   "location": "畑",
+   "coins": 100,
+   "inv": {
+    "パン": 3,
+    "小麦": 6
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "ミナ": {
+   "name": "ミナ",
+   "job": "パン屋",
+   "personality": "社交的で噂好き。商売上手で、人を集めるのが得意。",
+   "location": "市場",
+   "coins": 100,
+   "inv": {
+    "パン": 3,
+    "小麦": 4
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "ゴロウ": {
+   "name": "ゴロウ",
+   "job": "木こり",
+   "personality": "無口で頑固。義理堅く、受けた恩は忘れない。",
+   "location": "森",
+   "coins": 100,
+   "inv": {
+    "パン": 3,
+    "木材": 4
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "サキ": {
+   "name": "サキ",
+   "job": "大工",
+   "personality": "野心的。この街をもっと大きく、立派にしたいと思っている。",
+   "location": "工房",
+   "coins": 100,
+   "inv": {
+    "パン": 3,
+    "木材": 3
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "レン": {
+   "name": "レン",
+   "job": "商人",
+   "personality": "計算高く利益を重んじるが、一度した約束は守る。",
+   "location": "市場",
+   "coins": 300,
+   "inv": {
+    "パン": 3
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "ユイ": {
+   "name": "ユイ",
+   "job": "記者",
+   "personality": "好奇心旺盛で、力を持つ者を疑ってかかる。真実を書きたい。",
+   "location": "広場",
+   "coins": 100,
+   "inv": {
+    "パン": 3
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "トウマ": {
+   "name": "トウマ",
+   "job": "薬師",
+   "personality": "慎重で利他的。ただし口調は少し皮肉っぽい。",
+   "location": "診療所",
+   "coins": 100,
+   "inv": {
+    "パン": 3,
+    "薬": 2
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  },
+  "カナデ": {
+   "name": "カナデ",
+   "job": "吟遊詩人",
+   "personality": "自由奔放で楽観的。いつもお金がないが、気にしていない。",
+   "location": "酒場",
+   "coins": 30,
+   "inv": {
+    "パン": 3
+   },
+   "hunger": 0,
+   "health": "健康",
+   "sick_turns": 0,
+   "arrears": 0,
+   "session_id": null
+  }
+ },
+ "board": [],
+ "offers": [],
+ "proposals": [],
+ "laws": [],
+ "buildings": [],
+ "inbox": {
+  "ハル": [],
+  "ミナ": [],
+  "ゴロウ": [],
+  "サキ": [],
+  "レン": [],
+  "ユイ": [],
+  "トウマ": [],
+  "カナデ": []
+ },
+ "next_offer": 1,
+ "next_proposal": 1
+}
