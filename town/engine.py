@@ -61,6 +61,8 @@ def main(n):
             return True
         if who == "金庫":
             return st["treasury"] >= items.get(COIN, 0) and len([k for k in items if k != COIN]) == 0
+        if who == "基金":
+            return st.get("fund", 0) >= items.get(COIN, 0) and len([k for k in items if k != COIN]) == 0
         r = R[who]
         for k, v in items.items():
             if v < 0:
@@ -79,6 +81,9 @@ def main(n):
                     continue
                 if who == "金庫":
                     st["treasury"] += sign * v
+                elif who == "基金":
+                    st["fund"] = st.get("fund", 0) + sign * v
+                    st.setdefault("ledger", []).append({"turn": n, "kind": "収入" if sign > 0 else "支出", "what": f"{src}→{dst}", "amount": v})
                 elif k == COIN:
                     R[who]["coins"] += sign * v
                 else:
