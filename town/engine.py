@@ -21,6 +21,11 @@ import json, sys, random, pathlib, hashlib
 
 ROOT = pathlib.Path(__file__).parent
 COIN = "コイン"
+PROOF = {  # kind: (coins, items, allowed places or None)
+    "調査": (10, {}, None),
+    "試作": (20, {"木材": 2}, ["工房"]),
+    "実演": (15, {}, ["広場", "集会所"]),
+}
 WORK = {
     "農家": ("畑", {}, {"小麦": 3}),
     "パン屋": ("市場", {"小麦": 1}, {"パン": 3}),
@@ -264,6 +269,18 @@ def main(n):
         if isinstance(h, str): h = {"title": "（無題）", "content": h}
         item = {"turn": n, "day": (n - 1) // 6 + 1, "author": k, "title": str(h.get("title", "（無題）")),
                 "for_whom": str(h.get("for_whom", "")), "content": str(h.get("content", ""))}
+        pf = h.get("proof")
+        if isinstance(pf, dict) and pf.get("kind") in PROOF:
+            kind = pf["kind"]; cost, need, places = PROOF[kind]
+            if places and R[k]["location"] not in places:
+                private[k].append(f"実証（{kind}）は{'・'.join(places)}でしかできないので、実証なしで提出した。")
+            elif not has(k, {COIN: cost, **need}):
+                private[k].append(f"実証（{kind}）の費用（{cost}コイン{('＋' + fmt(need)) if need else ''}）が足りず、実証なしで提出した。")
+            else:
+                move_items(k, "外部", {COIN: cost, **need})
+                item["proof"] = {"kind": kind, "plan": str(pf.get("plan", "")), "cost": cost}
+                private[k].append(f"🔬 実証（{kind}）に{cost}コイン{('＋' + fmt(need)) if need else ''}を使った。結果は管理者が裁定する。")
+                ev("proof", who=k, proof_kind=kind, cost=cost, plan=item["proof"]["plan"])
         st["human_works"].append(item)
         ev("human_output", who=k, title=item["title"])
 
@@ -321,6 +338,13 @@ def main(n):
             if len(m) > 4000:
                 m = m[:4000]; private[k].append("記憶帳が4000字を超えたため、末尾を切り詰めた。")
             R[k]["memory"] = m
+
+    # 10c. building upkeep (paid from the treasury)
+    up = st["params"].get("building_upkeep", 0) * len(st["buildings"])
+    if up:
+        paid = min(up, st["treasury"]); st["treasury"] -= paid
+        ev("upkeep", total=up, paid=paid)
+        if paid < up: ev("upkeep_shortfall", missing=up - paid)
 
     # 11. eat, sickness, living cost
     st.setdefault("fund", 0)
@@ -414,6 +438,8 @@ def summarize_action(a):
     if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
     wo = a.get("work_output")
     if wo: parts.append(f"成果提出「{wo.get('title') if isinstance(wo, dict) else str(wo)[:30]}」")
+    ho = a.get("human_output")
+    if ho: parts.append(f"人間界へ提出「{ho.get('title') if isinstance(ho, dict) else str(ho)[:30]}」")
     return "、".join(parts) or "（特になし）"
 
 
@@ -458,9 +484,10 @@ def observe(st, k, n, priv, heard, new_posts):
               "この街の外には、実在の人間たちが暮らす世界がある。街の目標「人間に革命をもたらすこと」の「人間」はその人たちのことだ。",
               "- `human_output` に `{\"title\": …, \"for_whom\": 誰のどんな問題か, \"content\": 本文}` を書くと、人間界に向けた成果として届けられる。**提出物は、この実験を行っている実在の人間が実際に読む。**",
               "- 1日の終わりに、管理者が人間界の代理として評価し、実在の人間にとって具体的で、実際に役立ち、変化を起こしうるものを選ぶ。上位3人には返礼（40・25・15コイン）、人間向けの提出が1件でもあれば共同備蓄基金に20コインが入る。街の外貨収入はこれだけだ。",
+              "- 成果には `proof`（実証）を付けられる：`{\"kind\": \"調査\"|\"試作\"|\"実演\", \"plan\": 何をどう確かめるか}`。費用は 調査10コイン（どこでも）／試作20コイン＋木材2（工房）／実演15コイン（広場か集会所）。費用は街の外へ消える。結果は管理者が裁定して伝える。評価では『実際に確かめたか』を重く見るが、使った金額そのものは評価しない。",
               "- パンの配給（街への貢献）は、これまでどおり別に続く。"]
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
-        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{w['for_whom']}）：{w['content']}" for w in hw]
+        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{w['for_whom']}）：{w['content']}" + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
         hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
         if hl: L += ["", "**✉️ 人間からの手紙**"] + [f"- {x['text']}" for x in hl]
         hr = [x for x in st.get("human_rewards", []) if x["turn"] == n]
