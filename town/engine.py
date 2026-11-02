@@ -499,9 +499,9 @@ def observe(st, k, n, priv, heard, new_posts):
     L += ["## 📓 あなたの記憶帳", r.get("memory") or "（まだ何も書いていない）", ""]
     rec = r.get("recent") or []
     if rec:
-        L.append("## 🕰 あなたの最近12ターンの記録")
-        for x in rec:
-            L.append(clip(f"- T{x['turn']}（{x['place']}）：{x['did']}" + (" ／ " + " ".join(x["happened"]) if x["happened"] else ""), 180))
+        L.append("## 🕰 あなたの最近6ターンの記録（それより前は記憶帳に）")
+        for x in rec[-6:]:
+            L.append(clip(f"- T{x['turn']}（{x['place']}）：{x['did']}" + (" ／ " + " ".join(x["happened"]) if x["happened"] else ""), 130))
         L.append("")
     L.append(f"**あなた**：{k}（{r['job']}）　場所：{r['location']}　コイン：{r['coins']}　持ち物：{fmt(r['inv'])}")
     L.append(f"体調：{r['health']}　空腹：{r['hunger']}" + (f"　滞納：{r['arrears']}" if r["arrears"] else ""))
@@ -509,7 +509,7 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append("")
     if priv: L += ["## あなたに起きたこと"] + [f"- {x}" for x in priv] + [""]
     if heard: L += ["## この場所で聞こえたこと"] + [f"- {x}" for x in heard] + [""]
-    if new_posts: L += ["## 掲示板の新しい書き込み"] + [f"- {b['author']}: {clip(b['text'], 300) if b['author'] not in ('管理者', '役場') else b['text']}" for b in new_posts] + [""]
+    if new_posts: L += ["## 掲示板の新しい書き込み"] + [f"- {b['author']}: {clip(b['text'], 180) if b['author'] not in ('管理者', '役場') else b['text']}" for b in new_posts] + [""]
     mine = [o for o in st["offers"] if o["to"] == k]
     if mine: L += ["## あなた宛ての取引提案"] + [f"- {o['id']}：{o['from']}が {fmt(o['give'])} を渡すので、{fmt(o['get'])} がほしい" for o in mine] + [""]
     sent = [o for o in st["offers"] if o["from"] == k]
@@ -523,22 +523,19 @@ def observe(st, k, n, priv, heard, new_posts):
         L.append("")
     recent = [p for p in st["proposals"] if p.get("closed") == n]
     if recent: L += ["## 今ターンに決着した提案"] + [f"- {p['id']}：{p['text']} → {p['status']}" for p in recent] + [""]
-    if st["laws"]: L += ["## 街の決まり（成立済み）"] + [f"- {l['id']}：{l['text']}" for l in st["laws"]] + [""]
+    if st["laws"]: L += ["## 街の決まり（成立済み）"] + [f"- {l['id']}：{clip(l['text'], 70)}" for l in st["laws"]] + [""]
     if st["params"].get("human_world"):
         L += ["## 🌍 人間界との窓（常設）",
-              "この街の外には、実在の人間たちが暮らす世界がある。街の目標「人間に革命をもたらすこと」の「人間」はその人たちのことだ。",
-              "- `human_output` に `{\"title\": …, \"for_whom\": 誰のどんな問題か, \"content\": 本文}` を書くと、人間界に向けた成果として届けられる。**提出物は、この実験を行っている実在の人間が実際に読む。**",
-              "- 1日の終わりに、管理者が人間界の代理として評価する。**評価の基準はただ一つ、実在の人間にとって『革命』になるかどうか。テーマは問わない。** 人間界にすでにある常識の言い換え、ほかの住人と似たもの、質の低いものは『役に立たない』と評価され、返礼はない。上位3人には返礼（40・25・15コイン）、人間向けの提出が1件でもあれば共同備蓄基金に20コインが入る。街の外貨収入はこれだけだ。",
-              "- パンの配給（街への貢献）は、これまでどおり別に続く。"]
+              "街の外には実在の人間の世界がある。`human_output`（title / for_whom / content）で成果を届けられ、実験を行う実在の人間が読む。評価基準は、テーマを問わず人間にとって『革命』になるか。常識の言い換え・似たもの・低品質には返礼なし。1日の終わりに上位3人へ返礼40・25・15、提出があれば基金に20（街の唯一の外貨）。パンの配給は別。"]
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
-        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 150)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
+        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
         hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
         if hl: L += ["", "**✉️ 人間からの手紙**"] + [f"- {x['text']}" for x in hl]
         hr = [x for x in st.get("human_rewards", []) if x["turn"] == n]
         if hr: L += ["", "**人間界からの返礼**"] + [f"- {x.get('day')}日目：" + "、".join(f"{a}{c}コイン" for a, c in (x['to'] or {}).items()) + f"／基金{x['fund']}コイン　理由：{x['reason']}" for x in hr]
         L.append("")
     new_works = [w for w in st.get("works", []) if w["turn"] == n]
-    if new_works: L += ["## 新しく提出された成果"] + [f"- {w['author']}「{w['title']}」" + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 150)}") for w in new_works] + [""]
+    if new_works: L += ["## 新しく提出された成果"] + [f"- {w['author']}「{w['title']}」" + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") for w in new_works] + [""]
     aw = [a for a in st.get("awards", []) if a["turn"] == n]
     if aw: L += ["## 配給の発表"] + [f"- {a.get('day')}日目：{'、'.join(a['to'])}　理由：{a['reason']}" for a in aw] + [""]
     if st["buildings"]: L += ["## 街の建物"] + [f"- {b['name']}（{b.get('owner','')}）{b.get('desc','')}" for b in st["buildings"]] + [""]
