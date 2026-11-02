@@ -203,9 +203,24 @@ def main(n):
             st["board"].append({"turn": n, "author": k, "text": "【新聞】" + str(a["newspaper"])})
         if r["job"] == "吟遊詩人" and a.get("performance"):
             e["performance"] = a["performance"]
-            for o in names:
-                if o != k and R[o]["location"] == r["location"]:
-                    heard[o].append(f"🎵 {k}の演奏: {a['performance']}")
+            listeners = [o for o in names if o != k and R[o]["location"] == r["location"]]
+            for o in listeners:
+                heard[o].append(f"🎵 {k}の演奏: {a['performance']}")
+            cf = st["params"].get("culture_fund")  # p8
+            if cf:
+                day = (n - 1) // 6
+                paid_today = sum(x["amount"] for x in st.setdefault("culture_log", []) if x["day"] == day)
+                if len(listeners) < cf["min_listeners"]:
+                    private[k].append(f"🎭 p8の文化費は、聴き手が{cf['min_listeners']}人以上のときだけ出る（今回{len(listeners)}人）。")
+                elif st["treasury"] < cf["stop_below"]:
+                    private[k].append(f"🎭 金庫が{cf['stop_below']}コイン未満のため、p8の文化費は止まっている。")
+                elif paid_today + cf["per_event"] > cf["per_day"]:
+                    private[k].append(f"🎭 今日の文化費は上限（{cf['per_day']}コイン）に達している。")
+                else:
+                    move_items("金庫", k, {COIN: cf["per_event"]})
+                    st["culture_log"].append({"turn": n, "day": day, "amount": cf["per_event"], "place": r["location"], "listeners": listeners})
+                    private[k].append(f"🎭 p8により、{r['location']}での演奏（聴き手{len(listeners)}人：{'、'.join(listeners)}）に金庫から文化費{cf['per_event']}コインが出た。")
+                    ev("culture_fund", who=k, amount=cf["per_event"], place=r["location"], listeners=listeners)
 
     # 7. say (after moves, same place)
     for k in names:
