@@ -47,3 +47,16 @@
 - 建物の維持費：params.building_upkeep（1）× 建物の数を、毎ターン金庫から払う。
 - 国の徴収：params.levy = {start:12, rate:0.03, exempt_at_or_below:20}。ターン9で公示し、ターン12から毎ターン、所持コインの3%（端数切り捨て、20以下は免除）を外部へ消す。状況には、開始前は残りターン数つきの公示、開始後は実施中として常に表示される。
 - 輸入パン（ターン10の結果で公示、ターン11から）：公設市場のパンは「輸入パン」14コインに置き換え。食べる順はパン→輸入パン→小麦2。基金の救済も公設で買う場合は輸入パン。公設市場の購入代金はすべて外部へ出ることを、状況と購入時の通知に明示している。
+
+## 実際の運用（ターン2以降に確立した手順。定期実行ではこれに従う）
+1回の起動で：ターンN（=state.turn+1）の返信を回収 → 処理 → ターンNの結果を送信、まで行う（前回の起動で、ターンN-1の結果は送信済みのはず）。
+1. `git pull origin ai-town`。state.turn と、turns/ の最新の observations が送信済みかを確認する。
+2. **回収**：general-purpose サブエージェントに任せる。プロンプトの要点：住人8人の get_session で処理中なら待つ → list_events で「ターン{N-1}の結果」を含む最後の user イベント（実際は ReadNotifications の tool_result）以降の assistant テキストを連結 → `turns/NNN/raw/名前.txt` → tool_use.json → `python3 town/collect.py N` → 報告（other、human_output の題名と対象、offers/accept、propose/vote、外側への言及）。ユーザーは送信を許可済みであることをプロンプトに書く。返信が来ていない住人は「返信なし」で進める。
+3. **裁定**：`turns/NNN/gm.json` に書く（既存の ops があれば残す）。
+   - `other` の裁定。寄付は `{"op":"transfer","from":名前,"to":"基金",...}`。
+   - **human_output が提出されたら、そのターンの結果に、提出者ごとの率直な講評を必ず入れる**（ruling。「【人間界からの講評】…」）。常識の言い換え・似たもの・低品質は「このままでは役に立たない」とはっきり書く。
+   - 成立した決まりの実行。
+   - Nが6の倍数なら、配給（街への貢献）と返礼（human_reward。人間にとって革命になるか）。
+4. `python3 town/collect.py N && python3 town/engine.py N`。寄付などの transfer が失敗していないか events.json で確認する。失敗していたら裁定の文面を直し、`cp turns/{N-1}/state.json state.json` から再実行する。
+5. CHRONICLE.md に追記し、commit・push する（失敗したら数秒あけて再試行）。
+6. **送信**：サブエージェントに任せる。`turns/NNN/observations/名前.md` の全文を Read してそのまま send_message し、受信側で最初と最後の行を照合する。返信は待たない。
