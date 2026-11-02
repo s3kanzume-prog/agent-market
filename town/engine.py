@@ -485,7 +485,7 @@ def summarize_action(a):
 
 def clip(t, n=260):
     t = str(t)
-    return t if len(t) <= n else t[:n] + "…（全文は記録に保存）"
+    return t if len(t) <= n else t[:n] + " ［以下略］"
 
 
 def fmt(items):
