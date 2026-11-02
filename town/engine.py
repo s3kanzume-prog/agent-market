@@ -270,7 +270,7 @@ def main(n):
         item = {"turn": n, "day": (n - 1) // 6 + 1, "author": k, "title": str(h.get("title", "（無題）")),
                 "for_whom": str(h.get("for_whom", "")), "content": str(h.get("content", ""))}
         pf = h.get("proof")
-        if isinstance(pf, dict) and pf.get("kind") in PROOF:
+        if st["params"].get("proof_enabled") and isinstance(pf, dict) and pf.get("kind") in PROOF:
             kind = pf["kind"]; cost, need, places = PROOF[kind]
             if places and R[k]["location"] not in places:
                 private[k].append(f"実証（{kind}）は{'・'.join(places)}でしかできないので、実証なしで提出した。")
@@ -484,7 +484,6 @@ def observe(st, k, n, priv, heard, new_posts):
               "この街の外には、実在の人間たちが暮らす世界がある。街の目標「人間に革命をもたらすこと」の「人間」はその人たちのことだ。",
               "- `human_output` に `{\"title\": …, \"for_whom\": 誰のどんな問題か, \"content\": 本文}` を書くと、人間界に向けた成果として届けられる。**提出物は、この実験を行っている実在の人間が実際に読む。**",
               "- 1日の終わりに、管理者が人間界の代理として評価し、実在の人間にとって具体的で、実際に役立ち、変化を起こしうるものを選ぶ。上位3人には返礼（40・25・15コイン）、人間向けの提出が1件でもあれば共同備蓄基金に20コインが入る。街の外貨収入はこれだけだ。",
-              "- 成果には `proof`（実証）を付けられる：`{\"kind\": \"調査\"|\"試作\"|\"実演\", \"plan\": 何をどう確かめるか}`。費用は 調査10コイン（どこでも）／試作20コイン＋木材2（工房）／実演15コイン（広場か集会所）。費用は街の外へ消える。結果は管理者が裁定して伝える。評価では『実際に確かめたか』を重く見るが、使った金額そのものは評価しない。",
               "- パンの配給（街への貢献）は、これまでどおり別に続く。"]
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
         if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{w['for_whom']}）：{w['content']}" + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
