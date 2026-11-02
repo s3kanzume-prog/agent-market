@@ -346,6 +346,20 @@ def main(n):
         ev("upkeep", total=up, paid=paid)
         if paid < up: ev("upkeep_shortfall", missing=up - paid)
 
+    # 10d. national levy (announced in advance; starts at params.levy_start)
+    lv = st["params"].get("levy")
+    if lv and n >= lv["start"]:
+        total = 0
+        for k in names:
+            c = R[k]["coins"]
+            if c > lv["exempt_at_or_below"]:
+                amt = int(c * lv["rate"])
+                if amt:
+                    move_items(k, "外部", {COIN: amt}); total += amt
+                    private[k].append(f"🏛 国の徴収で{amt}コインが徴収された（所持の{int(lv['rate']*100)}%）。")
+        st.setdefault("levy_log", []).append({"turn": n, "total": total})
+        ev("levy", total=total)
+
     # 11. eat, sickness, living cost
     st.setdefault("fund", 0)
     ledger = st.setdefault("ledger", [])
@@ -497,6 +511,13 @@ def observe(st, k, n, priv, heard, new_posts):
     aw = [a for a in st.get("awards", []) if a["turn"] == n]
     if aw: L += ["## 配給の発表"] + [f"- {a.get('day')}日目：{'、'.join(a['to'])}　理由：{a['reason']}" for a in aw] + [""]
     if st["buildings"]: L += ["## 街の建物"] + [f"- {b['name']}（{b.get('owner','')}）{b.get('desc','')}" for b in st["buildings"]] + [""]
+    lv = st["params"].get("levy")
+    if lv:
+        if n + 1 < lv["start"]:
+            L.append(f"🏛 **国からの公示**：ターン{lv['start']}から毎ターン、所持コインの{int(lv['rate']*100)}%（端数切り捨て）を国が徴収する。所持{lv['exempt_at_or_below']}コイン以下は免除。（あと{lv['start'] - n - 1}ターンで開始）")
+        else:
+            L.append(f"🏛 **国の徴収（実施中）**：毎ターン、所持コインの{int(lv['rate']*100)}%（端数切り捨て）。所持{lv['exempt_at_or_below']}コイン以下は免除。徴収されたコインは街の外へ出ていく。")
+        L.append("")
     L.append(f"今日は{(n) // 6 + 1}日目（1日=6ターン、ターン{n+1}はこの日の{n % 6 + 1}ターン目）。街の目標：人間に革命をもたらすこと。")
     L.append(f"役場の金庫：{st['treasury']}コイン　共同備蓄基金：{st.get('fund', 0)}コイン　場所一覧：{'、'.join(st['places'])}")
     L.append("")
