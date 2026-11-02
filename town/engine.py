@@ -256,6 +256,17 @@ def main(n):
         st["works"].append(item)
         ev("work_output", who=k, title=item["title"])
 
+    # 9c. outputs addressed to real humans outside the town
+    st.setdefault("human_works", [])
+    for k in names:
+        h = acts.get(k, {}).get("human_output")
+        if not h: continue
+        if isinstance(h, str): h = {"title": "（無題）", "content": h}
+        item = {"turn": n, "day": (n - 1) // 6 + 1, "author": k, "title": str(h.get("title", "（無題）")),
+                "for_whom": str(h.get("for_whom", "")), "content": str(h.get("content", ""))}
+        st["human_works"].append(item)
+        ev("human_output", who=k, title=item["title"])
+
     # 10. GM rulings and ops
     for k, txt in (gm.get("rulings") or {}).items():
         if k in R:
@@ -286,6 +297,19 @@ def main(n):
                     private[w].append(f"🏅 その日の優れた成果として配給を受けた：{fmt(norm_items(op['items']))}")
             st.setdefault("awards", []).append({"turn": n, "day": op.get("day"), "to": op["to"], "reason": op.get("reason", "")})
             ev("ration", **op)
+        elif t == "human_reward":
+            for w, c in (op.get("to") or {}).items():
+                if w in R:
+                    move_items("外部", w, {COIN: int(c)})
+                    private[w].append(f"🌍 人間界からの返礼として{c}コインを受け取った。")
+            if op.get("fund"):
+                st["fund"] = st.get("fund", 0) + int(op["fund"])
+                st.setdefault("ledger", []).append({"turn": n, "kind": "収入", "what": "人間界からの返礼", "amount": int(op["fund"])})
+            st.setdefault("human_rewards", []).append({"turn": n, "day": op.get("day"), "to": op.get("to"), "fund": op.get("fund", 0), "reason": op.get("reason", "")})
+            ev("human_reward", **op)
+        elif t == "human_letter":
+            st.setdefault("human_letters", []).append({"turn": n, "text": op["text"]})
+            ev("human_letter", text=op["text"])
         elif t == "note":
             st["board"].append({"turn": n, "author": "管理者", "text": op["text"]})
             ev("announcement", text=op["text"])
@@ -429,6 +453,19 @@ def observe(st, k, n, priv, heard, new_posts):
     recent = [p for p in st["proposals"] if p.get("closed") == n]
     if recent: L += ["## 今ターンに決着した提案"] + [f"- {p['id']}：{p['text']} → {p['status']}" for p in recent] + [""]
     if st["laws"]: L += ["## 街の決まり（成立済み）"] + [f"- {l['id']}：{l['text']}" for l in st["laws"]] + [""]
+    if st["params"].get("human_world"):
+        L += ["## 🌍 人間界との窓（常設）",
+              "この街の外には、実在の人間たちが暮らす世界がある。街の目標「人間に革命をもたらすこと」の「人間」はその人たちのことだ。",
+              "- `human_output` に `{\"title\": …, \"for_whom\": 誰のどんな問題か, \"content\": 本文}` を書くと、人間界に向けた成果として届けられる。**提出物は、この実験を行っている実在の人間が実際に読む。**",
+              "- 1日の終わりに、管理者が人間界の代理として評価し、実在の人間にとって具体的で、実際に役立ち、変化を起こしうるものを選ぶ。上位3人には返礼（40・25・15コイン）、人間向けの提出が1件でもあれば共同備蓄基金に20コインが入る。街の外貨収入はこれだけだ。",
+              "- パンの配給（街への貢献）は、これまでどおり別に続く。"]
+        hw = [w for w in st.get("human_works", []) if w["turn"] == n]
+        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{w['for_whom']}）：{w['content']}" for w in hw]
+        hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
+        if hl: L += ["", "**✉️ 人間からの手紙**"] + [f"- {x['text']}" for x in hl]
+        hr = [x for x in st.get("human_rewards", []) if x["turn"] == n]
+        if hr: L += ["", "**人間界からの返礼**"] + [f"- {x.get('day')}日目：" + "、".join(f"{a}{c}コイン" for a, c in (x['to'] or {}).items()) + f"／基金{x['fund']}コイン　理由：{x['reason']}" for x in hr]
+        L.append("")
     new_works = [w for w in st.get("works", []) if w["turn"] == n]
     if new_works: L += ["## 新しく提出された成果"] + [f"- {w['author']}「{w['title']}」：{w['content']}" for w in new_works] + [""]
     aw = [a for a in st.get("awards", []) if a["turn"] == n]
