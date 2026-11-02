@@ -306,11 +306,12 @@ def main(n):
         # law-based relief from the common reserve fund (p1/p3)
         if st["params"].get("relief_fund_share"):
             pb = st["params"]["public_buy"]
-            if inv.get("パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= pb["パン"]:
+            means = st["params"].get("relief_means_test")
+            if inv.get("パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= pb["パン"] and not (means and r["coins"] >= pb["パン"]):
                 st["fund"] -= pb["パン"]; move_items("外部", k, {"パン": 1})
                 private[k].append("🧺 共同備蓄基金からパン1を無償で受け取った。")
                 ev("relief", who=k, item="パン", cost=pb["パン"]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へパン1", "amount": pb["パン"]})
-            if r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= pb["薬"]:
+            if r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= pb["薬"] and not (means and r["coins"] >= pb["薬"]):
                 st["fund"] -= pb["薬"]; move_items("外部", k, {"薬": 1})
                 private[k].append("🧺 共同備蓄基金から薬1を無償で受け取った。")
                 ev("relief", who=k, item="薬", cost=pb["薬"]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ薬1", "amount": pb["薬"]})
