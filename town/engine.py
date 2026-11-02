@@ -369,6 +369,28 @@ def main(n):
         # law-based relief from the common reserve fund (p1/p3)
         if st["params"].get("relief_fund_share"):
             pb = st["params"]["public_buy"]
+            direct = st["params"].get("direct_supply")  # p7: {"パン": {"job": "パン屋", "price": 9, "keep": 2}, ...}
+            def supplier(item):
+                if not direct or item not in direct: return None
+                d = direct[item]
+                for o in names:
+                    if o != k and R[o]["job"] == d["job"] and R[o]["inv"].get(item, 0) > d["keep"]:
+                        return o, d["price"]
+                return None
+            sp = supplier("パン")
+            if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= sp[1]):
+                o, price = sp; st["fund"] -= price
+                move_items(o, k, {"パン": 1}); move_items("外部", o, {COIN: price})
+                private[k].append(f"🧺 共同備蓄基金から、{o}のパン1を無償で受け取った（基金が{o}に{price}コインで支払い）。")
+                private[o].append(f"🧺 決まりp7により、基金の求めで{k}へパン1を納め、基金から{price}コインを受け取った。")
+                ev("relief", who=k, item="パン", cost=price, supplier=o); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へパン1（{o}から直接）", "amount": price})
+            sp = supplier("薬")
+            if sp and r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= sp[1]):
+                o, price = sp; st["fund"] -= price
+                move_items(o, k, {"薬": 1}); move_items("外部", o, {COIN: price})
+                private[k].append(f"🧺 共同備蓄基金から、{o}の薬1を無償で受け取った（基金が{o}に{price}コインで支払い）。")
+                private[o].append(f"🧺 決まりp7により、基金の求めで{k}へ薬1を納め、基金から{price}コインを受け取った。")
+                ev("relief", who=k, item="薬", cost=price, supplier=o); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ薬1（{o}から直接）", "amount": price})
             means = st["params"].get("relief_means_test")
             bread = "輸入パン" if "輸入パン" in pb else "パン"
             if inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= pb[bread] and not (means and r["coins"] >= pb[bread]):
@@ -501,7 +523,7 @@ def observe(st, k, n, priv, heard, new_posts):
         L += ["## 🌍 人間界との窓（常設）",
               "この街の外には、実在の人間たちが暮らす世界がある。街の目標「人間に革命をもたらすこと」の「人間」はその人たちのことだ。",
               "- `human_output` に `{\"title\": …, \"for_whom\": 誰のどんな問題か, \"content\": 本文}` を書くと、人間界に向けた成果として届けられる。**提出物は、この実験を行っている実在の人間が実際に読む。**",
-              "- 1日の終わりに、管理者が人間界の代理として評価し、実在の人間にとって具体的で、実際に役立ち、変化を起こしうるものを選ぶ。上位3人には返礼（40・25・15コイン）、人間向けの提出が1件でもあれば共同備蓄基金に20コインが入る。街の外貨収入はこれだけだ。",
+              "- 1日の終わりに、管理者が人間界の代理として評価する。**評価の基準はただ一つ、実在の人間にとって『革命』になるかどうか。テーマは問わない。** 人間界にすでにある常識の言い換え、ほかの住人と似たもの、質の低いものは『役に立たない』と評価され、返礼はない。上位3人には返礼（40・25・15コイン）、人間向けの提出が1件でもあれば共同備蓄基金に20コインが入る。街の外貨収入はこれだけだ。",
               "- パンの配給（街への貢献）は、これまでどおり別に続く。"]
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
         if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{w['for_whom']}）：{w['content']}" + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
