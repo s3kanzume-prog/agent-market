@@ -284,6 +284,14 @@ def main(n):
         elif t == "note":
             ev("announcement", text=op["text"])
 
+    # 10b. memory notebooks
+    for k in names:
+        m = acts.get(k, {}).get("memory")
+        if isinstance(m, str) and m.strip():
+            if len(m) > 4000:
+                m = m[:4000]; private[k].append("記憶帳が4000字を超えたため、末尾を切り詰めた。")
+            R[k]["memory"] = m
+
     # 11. eat, sickness, living cost
     for k in names:
         r = R[k]; inv = r["inv"]
@@ -314,6 +322,11 @@ def main(n):
 
     st["turn"] = n
     st["board"] = st["board"][-40:]
+    for k in names:
+        R[k].setdefault("recent", [])
+        R[k]["recent"].append({"turn": n, "place": R[k]["location"],
+                               "did": summarize_action(acts.get(k)), "happened": private[k] + heard[k][:6]})
+        R[k]["recent"] = R[k]["recent"][-12:]
 
     # observations
     (tdir / "observations").mkdir(parents=True, exist_ok=True)
@@ -326,6 +339,27 @@ def main(n):
     print(f"turn {n} resolved: {len(events)} events")
 
 
+def summarize_action(a):
+    if not a: return "（行動なし）"
+    parts = []
+    if a.get("move"): parts.append(f"移動→{a['move']}")
+    if a.get("work"): parts.append("仕事")
+    if a.get("say"): parts.append(f"発言「{str(a['say'])[:80]}」")
+    for m in a.get("messages") or []: parts.append(f"{m.get('to')}へ手紙「{str(m.get('text',''))[:60]}」")
+    if a.get("post"): parts.append(f"掲示「{str(a['post'])[:60]}」")
+    for g in a.get("give") or []: parts.append(f"{g.get('to')}へ贈与{g.get('items')}")
+    for o in a.get("offers") or []: parts.append(f"{o.get('to')}へ取引提案 {o.get('give')}⇄{o.get('get')}")
+    if a.get("accept_offers"): parts.append(f"取引受諾{a['accept_offers']}")
+    if a.get("buy_public"): parts.append(f"公設買い{a['buy_public']}")
+    if a.get("sell_public"): parts.append(f"公設売り{a['sell_public']}")
+    if a.get("propose"): parts.append(f"提案「{str(a['propose'])[:60]}」")
+    if a.get("vote"): parts.append(f"投票{a['vote']}")
+    if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
+    wo = a.get("work_output")
+    if wo: parts.append(f"成果提出「{wo.get('title') if isinstance(wo, dict) else str(wo)[:30]}」")
+    return "、".join(parts) or "（特になし）"
+
+
 def fmt(items):
     return "、".join(f"{k}{v}" for k, v in items.items()) or "なし"
 
@@ -334,6 +368,13 @@ def observe(st, k, n, priv, heard, new_posts):
     R = st["residents"]; r = R[k]
     here = [o for o in R if o != k and R[o]["location"] == r["location"]]
     L = [f"# ターン{n}の結果 → ターン{n+1}の行動を決めてください", ""]
+    L += ["## 📓 あなたの記憶帳", r.get("memory") or "（まだ何も書いていない）", ""]
+    rec = r.get("recent") or []
+    if rec:
+        L.append("## 🕰 あなたの最近12ターンの記録")
+        for x in rec:
+            L.append(f"- T{x['turn']}（{x['place']}）：{x['did']}" + (" ／ " + " ".join(x["happened"]) if x["happened"] else ""))
+        L.append("")
     L.append(f"**あなた**：{k}（{r['job']}）　場所：{r['location']}　コイン：{r['coins']}　持ち物：{fmt(r['inv'])}")
     L.append(f"体調：{r['health']}　空腹：{r['hunger']}" + (f"　滞納：{r['arrears']}" if r["arrears"] else ""))
     L.append(f"同じ場所にいる人：{'、'.join(here) or 'だれもいない'}")
