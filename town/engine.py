@@ -370,6 +370,10 @@ def main(n):
         if k in R:
             private[k].append(f"⚖️ 管理者の裁定: {txt}")
             ev("ruling", who=k, text=txt)
+            if "【人間界からの講評】" in txt:  # keep the critique with the submission (library)
+                for w in reversed(st.get("human_works", [])):
+                    if w["turn"] == n and w["author"] == k:
+                        w["feedback"] = txt.split("【人間界からの講評】", 1)[1].strip(); break
     for op in gm.get("ops") or []:
         t = op.get("op")
         if t == "transfer":
@@ -565,6 +569,52 @@ def main(n):
             r["arrears"] += lc - pay; private[k].append(f"生活費を払えず、滞納が{r['arrears']}コインになった。")
             ev("arrears", who=k, total=r["arrears"])
 
+    # library: search / read / donate (only while at the library; private results)
+    lp = st["params"].get("library")
+    if lp:
+        def books():
+            out = []
+            for i, w in enumerate(st.get("human_works", [])):
+                out.append({"id": f"H{i+1}", "kind": "人間界への提出", **w})
+            for i, w in enumerate(st.get("works", [])):
+                out.append({"id": f"W{i+1}", "kind": "街の成果", **w})
+            for i, w in enumerate(st.get("library_books", [])):
+                out.append({"id": f"B{i+1}", "kind": "寄贈本", **w})
+            return out
+        for k in names:
+            a = acts.get(k, {})
+            if not (a.get("library_search") or a.get("library_read") or a.get("donate_book")): continue
+            if R[k]["location"] != lp["place"]:
+                private[k].append(f"📚 図書館の本は{lp['place']}にいるときだけ使える。"); continue
+            db = a.get("donate_book")
+            if isinstance(db, dict) and db.get("title") and db.get("content"):
+                st.setdefault("library_books", []).append({"turn": n, "author": k, "title": str(db["title"])[:120], "content": str(db["content"])[:4000]})
+                bid = f"B{len(st['library_books'])}"
+                private[k].append(f"📚 「{db['title']}」を図書館に寄贈した（{bid}）。"); ev("donate_book", who=k, id=bid, title=db["title"])
+            bs = books()
+            q = a.get("library_search")
+            if q:
+                terms = [t for t in str(q).replace("、", " ").split() if t]
+                hits = [b for b in bs if all(t in (b["title"] + b.get("content", "") + b.get("for_whom", "") + b["author"]) for t in terms)]
+                if hits:
+                    private[k].append(f"📚 「{q}」の検索結果（{len(hits)}冊中、新しい順に{min(len(hits), lp['search_max'])}冊）：" + " ／ ".join(
+                        f"{b['id']} {b['author']}「{clip(b['title'], 50)}」(T{b['turn']}・{b['kind']})" + (f" 講評：{clip(b['feedback'], 60)}" if b.get("feedback") else "") for b in hits[::-1][:lp["search_max"]]))
+                else:
+                    private[k].append(f"📚 「{q}」に当てはまる本は見つからなかった。")
+                ev("library_search", who=k, q=q)
+            rid = a.get("library_read")
+            if rid:
+                if isinstance(rid, list): rid = rid[0] if rid else ""
+                b = next((b for b in bs if b["id"] == str(rid).strip().upper()), None)
+                if not b:
+                    private[k].append(f"📚 「{rid}」という本は無い（番号はH12・W30・B1のように書く）。")
+                else:
+                    txt = f"📚 {b['id']}（{b['kind']}・T{b['turn']}）{b['author']}" + (f"・共著{'、'.join(b.get('co_authors', []))}" if b.get("co_authors") else "") + f"「{b['title']}」"
+                    if b.get("for_whom"): txt += f"　対象：{clip(b['for_whom'], 120)}"
+                    txt += f"\n本文：{clip(b.get('content', ''), lp['read_chars'])}"
+                    if b.get("feedback"): txt += f"\n人間界からの講評：{clip(b['feedback'], 500)}"
+                    private[k].append(txt); ev("library_read", who=k, id=b["id"])
+
     # investigate: learn one person's economic state at the end of this turn (private to the investigator)
     if st["params"].get("investigate"):
         for k in names:
@@ -623,6 +673,9 @@ def summarize_action(a):
     if a.get("vote"): parts.append(f"投票{a['vote']}")
     if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
     if a.get("investigate"): parts.append(f"調査→{a['investigate']}")
+    if a.get("library_search"): parts.append(f"図書館で検索「{a['library_search']}」")
+    if a.get("library_read"): parts.append(f"図書館で閲覧{a['library_read']}")
+    if isinstance(a.get("donate_book"), dict): parts.append(f"図書館へ寄贈「{str(a['donate_book'].get('title'))[:30]}」")
     ws = a.get("whisper") or []
     for w in ([ws] if isinstance(ws, dict) else ws): parts.append(f"{w.get('to')}へささやき「{str(w.get('text',''))[:50]}」")
     if a.get("build_golem"): parts.append(f"ゴーレム作成{a['build_golem']}")
@@ -705,6 +758,13 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append("")
     gs = [g for g in st.get("golems", []) if not g.get("broken")]
     if gs: L += ["🗿 街のゴーレム：" + "、".join(f"{g['name']}（{g['owner']}の{g['job']}）" for g in gs), ""]
+    lp = st["params"].get("library")
+    if lp:
+        nb = len(st.get("human_works", [])) + len(st.get("works", [])) + len(st.get("library_books", []))
+        L.append(f"📚 図書館（{lp['place']}・全{nb}冊）：人間界への提出物とその講評（H番号）、街の成果（W番号）、寄贈本（B番号）がそろっている。{lp['place']}にいるターンに \"library_search\": \"キーワード\"（最大{lp['search_max']}冊の一覧）、\"library_read\": \"H12\"（1冊を読む）、\"donate_book\": {{\"title\": \"…\", \"content\": \"…\"}}（寄贈）が使える。移動したそのターンから使える。無料。結果はあなただけに届く。")
+        if r["location"] == lp["place"]:
+            hw = st.get("human_works", [])
+            L.append("　最近の人間界への提出（新しい順）：" + " ／ ".join(f"H{i+1} {w['author']}「{clip(w['title'], 28)}」" for i, w in list(enumerate(hw))[::-1][:10]))
     L.append("🤫 ささやき：\"whisper\": [{\"to\": \"名前\", \"text\": \"…\"}] で、同じ場所にいる1人にだけ、このターンのうちに届く（1ターン2人まで）。周りの人には『ささやいていた』ことだけが見える。")
     gp = st["params"].get("golem")
     if gp:
