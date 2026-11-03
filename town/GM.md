@@ -64,3 +64,9 @@
    - 状況が長くなりすぎないよう、engine.py は直近6ターンの記録、ほかの住人の成果や掲示を切り詰めて表示する。全文は state.json と turns/ に残る。
 
 - 訂正の送信：状況の一部が誤って届いたときは、管理者が短い訂正メッセージを直接送る（見出しは付けない）。ターン12でサキに「輸入パン」の訂正を送った。
+
+## 牧師ノア（ターン19に到着する旅人）と共同提出
+- ターン19の gm.json で add_resident（パン50、visitor）。**ターン19の engine を実行したあと**、ノアのセッションを作る：model `claude-sonnet-5-5`、tags `["ai-town","ai-town-resident"]`、append_system_prompt は `town/pastor_prompt.md` の内容に住人と同じ RULES 全文と sermon 欄を加えたもの、prompt は `turns/019/observations/ノア.md` の全文。作ったら session_id を `residents.json` の sessions に加える。
+- 以降、回収と送信は sessions のうち `state.residents[名前].departed` が真でない者すべて（ノアを含む9人）。村を去ったターンの結果は最後に1回だけ送り、以降は送らない。
+- ノアは返礼・配給の対象外。説教（sermon）は掲示板に載る。投票は無効。
+- 共同提出：human_output.co_authors と、共著者の co_sign（同じ題名）で成立。返礼は1.5倍にして、確認済みの共著者と提出者で等分する（端数切り捨て）。
