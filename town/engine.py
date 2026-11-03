@@ -191,7 +191,7 @@ def main(n):
     # 6. work
     for k in names:
         a = acts.get(k, {}); r = R[k]
-        if not a.get("work"): continue
+        if not a.get("work") and not (r["job"] == "吟遊詩人" and a.get("performance")): continue
         place, cost, gain = WORK[r["job"]]
         if r["health"] != "健康": private[k].append("病気で働けなかった。"); continue
         if r["hunger"] >= 2: private[k].append("空腹で働けなかった。"); continue
