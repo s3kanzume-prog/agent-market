@@ -405,6 +405,20 @@ def main(n):
     # 11. eat, sickness, living cost
     st.setdefault("fund", 0)
     ledger = st.setdefault("ledger", [])
+    # p9: the fund buys bread from the baker into the storehouse
+    wb = st["params"].get("warehouse_bread")
+    if wb:
+        wh = st.setdefault("warehouse", {})
+        bought = 0
+        while wh.get("パン", 0) < wb["refill_below"] and bought < wb["per_turn"] and st["fund"] >= wb["price"]:
+            baker = next((o for o in voters if R[o]["job"] == "パン屋" and R[o]["inv"].get("パン", 0) > wb["keep"]), None)
+            if not baker: break
+            st["fund"] -= wb["price"]; move_items(baker, "外部", {"パン": 1}); move_items("外部", baker, {COIN: wb["price"]})
+            wh["パン"] = wh.get("パン", 0) + 1; bought += 1
+            ledger.append({"turn": n, "kind": "支出", "what": f"倉庫へパン1（{baker}から買い入れ）", "amount": wb["price"]})
+        if bought:
+            private[baker].append(f"🏚 決まりp9により、基金が倉庫用にあなたのパン{bought}個を1個{wb['price']}コインで買い入れた。")
+            ev("warehouse_buy", qty=bought, stock=wh.get("パン", 0))
     for k in names:
         r = R[k]; inv = r["inv"]
         # law-based relief from the common reserve fund (p1/p3)
@@ -418,6 +432,11 @@ def main(n):
                     if o != k and R[o]["job"] == d["job"] and R[o]["inv"].get(item, 0) > d["keep"]:
                         return o, d["price"]
                 return None
+            wh = st.get("warehouse", {})
+            if st["params"].get("warehouse_bread") and wh.get("パン", 0) > 0 and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and not (st["params"].get("relief_means_test") and r["coins"] >= st["params"]["warehouse_bread"]["price"]):
+                wh["パン"] -= 1; move_items("外部", k, {"パン": 1})
+                private[k].append("🧺 共同備蓄基金（備蓄倉庫）からパン1を無償で受け取った。")
+                ev("relief", who=k, item="パン", cost=0, source="倉庫"); ledger.append({"turn": n, "kind": "払い出し", "what": f"{k}へ倉庫のパン1", "amount": 0})
             sp = supplier("パン")
             if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= sp[1]):
                 o, price = sp; st["fund"] -= price
@@ -597,7 +616,7 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append(f"今日は{(n) // 6 + 1}日目（1日=6ターン、ターン{n+1}はこの日の{n % 6 + 1}ターン目）。街の目標：人間に革命をもたらすこと。")
     pbuy = st["params"]["public_buy"]; psell = st["params"]["public_sell"]
     L.append("公設市場（市場にいるときだけ）　買う：" + "、".join(f"{k2}{v}" for k2, v in pbuy.items()) + "　※買った代金はすべて街の外へ出ていく／売る：" + "、".join(f"{k2}{v}" for k2, v in psell.items()))
-    L.append(f"役場の金庫：{st['treasury']}コイン　共同備蓄基金：{st.get('fund', 0)}コイン　場所一覧：{'、'.join(st['places'])}")
+    L.append(f"役場の金庫：{st['treasury']}コイン　共同備蓄基金：{st.get('fund', 0)}コイン　倉庫のパン：{st.get('warehouse', {}).get('パン', 0)}個　場所一覧：{'、'.join(st['places'])}")
     L.append("")
     L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}{'・旅人' if R[o].get('visitor') else ''}）" for o in R if o != k and not R[o].get("departed")))
     L.append("")
