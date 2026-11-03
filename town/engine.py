@@ -531,7 +531,8 @@ def main(n):
         day = [x for x in ledger if n - 6 < x["turn"] <= n]
         inc = sum(x["amount"] for x in day if x["kind"] == "収入"); out = [x for x in day if x["kind"] == "支出"]
         txt = (f"【役場の日次報告・{n // 6}日目】金庫：{st['treasury']}コイン／共同備蓄基金：{st['fund']}コイン。"
-               f"本日の基金収入：{inc}コイン。本日の基金支出：" + ("、".join(f"{x['what']}({x['amount']})" for x in out) or "なし") + "。")
+               f"本日の基金収入：{inc}コイン。本日の基金支出：" + ("、".join(f"{x['what']}({x['amount']})" for x in out) or "なし") + "。"
+               + "本日の文化費（金庫から）：" + ("、".join(f"T{c['turn']}{c['place']}{c['amount']}" for c in st.get("culture_log", []) if n - 6 < c["turn"] <= n) or "なし") + "。")
         st["board"].append({"turn": n, "author": "役場", "text": txt}); ev("treasury_report", text=txt)
     st["ledger"] = ledger[-200:]
     st["board"] = st["board"][-40:]
