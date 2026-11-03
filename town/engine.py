@@ -355,6 +355,12 @@ def main(n):
         elif t == "human_letter":
             st.setdefault("human_letters", []).append({"turn": n, "text": op["text"]})
             ev("human_letter", text=op["text"])
+        elif t == "pay_arrears":
+            w = op["who"]; amt = min(int(op["amount"]), R[w]["arrears"], max(R[w]["coins"], 0))
+            if amt > 0:
+                move_items(w, "金庫", {COIN: amt}); R[w]["arrears"] -= amt
+                private[w].append(f"🏛 生活費の滞納を{amt}コイン支払った（残りの滞納{R[w]['arrears']}）。")
+            ev("pay_arrears", who=w, amount=amt)
         elif t == "add_resident":
             nm = op["name"]
             R[nm] = {"name": nm, "job": op["job"], "personality": op.get("personality", ""), "location": op.get("location", "広場"),
