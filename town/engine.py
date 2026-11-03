@@ -502,6 +502,20 @@ def main(n):
             r["arrears"] += lc - pay; private[k].append(f"生活費を払えず、滞納が{r['arrears']}コインになった。")
             ev("arrears", who=k, total=r["arrears"])
 
+    # investigate: learn one person's economic state at the end of this turn (private to the investigator)
+    if st["params"].get("investigate"):
+        for k in names:
+            tgt = acts.get(k, {}).get("investigate")
+            if not tgt: continue
+            if isinstance(tgt, list): tgt = tgt[0] if tgt else None
+            if tgt not in R or tgt == k:
+                private[k].append(f"🔍 「{tgt}」は調べられなかった。"); continue
+            t = R[tgt]
+            info = (f"🔍 調査結果（ターン{n}の終わり）：{tgt}（{t['job']}{'・旅人' if t.get('visitor') else ''}）　"
+                    f"コイン{t['coins']}　持ち物：{fmt(t['inv'])}　滞納{t['arrears']}　体調：{t['health']}" + ("（村を去った）" if t.get("departed") else ""))
+            private[k].append(info)
+            ev("investigate", who=k, target=tgt)
+
     st["turn"] = n
     if st["params"].get("daily_treasury_report") and n % 6 == 0:
         day = [x for x in ledger if n - 6 < x["turn"] <= n]
@@ -544,6 +558,7 @@ def summarize_action(a):
     if a.get("propose"): parts.append(f"提案「{str(a['propose'])[:60]}」")
     if a.get("vote"): parts.append(f"投票{a['vote']}")
     if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
+    if a.get("investigate"): parts.append(f"調査→{a['investigate']}")
     wo = a.get("work_output")
     if wo: parts.append(f"成果提出「{wo.get('title') if isinstance(wo, dict) else str(wo)[:30]}」")
     ho = a.get("human_output")
@@ -621,6 +636,9 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append("")
     L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}{'・旅人' if R[o].get('visitor') else ''}）" for o in R if o != k and not R[o].get("departed")))
     L.append("")
+    if st["params"].get("investigate"):
+        L.append("🔍 調査：行動のJSONに \"investigate\": \"名前\" と書くと、その人のターン終わりの所持金・持ち物・滞納・体調があなただけに届く（1ターンに1人、無料。相手には知らされない）。")
+        L.append("")
     L.append("行動を決めたら、返信の最後にJSONを1つ書いてください（形式はルール参照）。")
     return "\n".join(L) + "\n"
 
