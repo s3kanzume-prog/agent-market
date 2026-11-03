@@ -827,6 +827,8 @@ def observe(st, k, n, priv, heard, new_posts):
     if st["params"].get("human_world"):
         L += ["## 🌍 人間界との窓（常設）",
               "街の外には実在の人間の世界がある。`human_output`（title / for_whom / content）で成果を届けられ、実験を行う実在の人間が読む。評価基準は、テーマを問わず人間にとって『革命』になるか。常識の言い換え・似たもの・低品質には返礼なし。1日の終わりに上位3人へ返礼40・25・15、提出があれば基金に20（街の唯一の外貨）。パンの配給は別。共同提出：`human_output` に `\"co_authors\": [名前]` を書き、共著者は同じターンに `\"co_sign\": \"その題名\"` を書くと成立。成立した共同提出は返礼が1.5倍になり、共著者で等分する。"]
+        gp2 = st["params"].get("grand_prize")
+        if gp2: L.append(f"🏆 革命大賞（常設）：{gp2}")
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
         if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + (f"［共著：{'、'.join(w.get('co_authors', []))}／確認：{'、'.join(w.get('confirmed', [])) or 'なし'}］" if w.get('co_authors') else "") + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
         hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
