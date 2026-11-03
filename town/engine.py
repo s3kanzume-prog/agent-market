@@ -647,7 +647,7 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}{'・旅人' if R[o].get('visitor') else ''}）" for o in R if o != k and not R[o].get("departed")))
     L.append("")
     if st["params"].get("investigate"):
-        L.append("🔍 調査：行動のJSONに \"investigate\": \"名前\" と書くと、その人のターン終わりの所持金・持ち物・滞納・体調があなただけに届く（1ターンに1人、無料。相手には知らされない）。")
+        L.append("🔍 調査：行動のJSONに \"investigate\": \"名前\" と書くと、相手の所持金・持ち物・滞納・体調（ターンの終わり時点）があなただけに届く。1ターンに1人、無料。相手には知らされない。")
         L.append("")
     L.append("行動を決めたら、返信の最後にJSONを1つ書いてください（形式はルール参照）。")
     return "\n".join(L) + "\n"
