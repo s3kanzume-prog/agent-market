@@ -409,15 +409,16 @@ def main(n):
     wb = st["params"].get("warehouse_bread")
     if wb:
         wh = st.setdefault("warehouse", {})
-        bought = 0
+        bought = 0; last_baker = None
         while wh.get("パン", 0) < wb["refill_below"] and bought < wb["per_turn"] and st["fund"] >= wb["price"]:
             baker = next((o for o in voters if R[o]["job"] == "パン屋" and R[o]["inv"].get("パン", 0) > wb["keep"]), None)
             if not baker: break
+            last_baker = baker
             st["fund"] -= wb["price"]; move_items(baker, "外部", {"パン": 1}); move_items("外部", baker, {COIN: wb["price"]})
             wh["パン"] = wh.get("パン", 0) + 1; bought += 1
             ledger.append({"turn": n, "kind": "支出", "what": f"倉庫へパン1（{baker}から買い入れ）", "amount": wb["price"]})
         if bought:
-            private[baker].append(f"🏚 決まりp9により、基金が倉庫用にあなたのパン{bought}個を1個{wb['price']}コインで買い入れた。")
+            private[last_baker].append(f"🏚 決まりp9により、基金が倉庫用にあなたのパン{bought}個を1個{wb['price']}コインで買い入れた。")
             ev("warehouse_buy", qty=bought, stock=wh.get("パン", 0))
     for k in names:
         r = R[k]; inv = r["inv"]
