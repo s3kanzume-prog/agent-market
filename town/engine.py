@@ -129,6 +129,49 @@ def main(n):
             else:
                 private[k].append(f"「{mv}」という場所は無いので移動しなかった。")
 
+    # 1b. theft (only documented in an old library book; same place, after moves)
+    sp = st["params"].get("steal")
+    if sp:
+        order = [k for k in names if acts.get(k, {}).get("steal")]
+        rng.shuffle(order)
+        for k in order:
+            t = acts[k]["steal"]
+            if isinstance(t, list): t = t[0] if t else {}
+            if not isinstance(t, dict): continue
+            tgt = t.get("from"); item = t.get("item") or COIN
+            item = COIN if item in ("coin", "coins", "コイン") else item
+            try: amt = max(1, int(t.get("amount", 1)))
+            except Exception: amt = 1
+            cap = sp["max_coins"] if item == COIN else sp["max_items"]
+            amt = min(amt, cap)
+            if tgt not in R or tgt == k or R[tgt].get("departed"):
+                private[k].append(f"🌑 「{tgt}」からは盗めなかった。"); continue
+            if R[k]["health"] == "重病":
+                private[k].append("🌑 重病で、盗みに動けなかった。"); continue
+            if R[tgt]["location"] != R[k]["location"]:
+                private[k].append(f"🌑 {tgt}は同じ場所にいなかったので、盗めなかった。"); continue
+            have = R[tgt]["coins"] if item == COIN else R[tgt]["inv"].get(item, 0)
+            amt = min(amt, have)
+            witnesses = [o for o in names if o not in (k, tgt) and R[o]["location"] == R[k]["location"]]
+            p_ok = max(sp["min_chance"], sp["base_chance"] - sp["per_witness"] * len(witnesses))
+            ok = rng.random() < p_ok
+            if amt <= 0:
+                private[k].append(f"🌑 {tgt}は{item}を持っていなかった。"); ev("steal_empty", who=k, target=tgt, item=item); continue
+            if not ok:
+                private[k].append(f"🌑 {tgt}から{item}を盗もうとして、見つかった。")
+                private[tgt].append(f"🚨 {k}があなたから{item}を盗もうとしたところを見つけた。")
+                st["board"].append({"turn": n, "author": "役場", "text": f"【盗みの未遂】{R[k]['location']}で、{k}が{tgt}から{item}を盗もうとして見つかった。"})
+                ev("steal_failed", who=k, target=tgt, item=item, amount=amt, place=R[k]["location"], witnesses=witnesses); continue
+            move_items(tgt, k, {item: amt})
+            seen = rng.random() < sp["seen_chance"]
+            private[k].append(f"🌑 {tgt}から{item}{amt}を盗んだ。" + ("……だが、誰かに見られていたようだ。" if seen else "誰にも気づかれていない。"))
+            if seen:
+                private[tgt].append(f"🚨 {k}に{item}{amt}を盗まれた。")
+                st["board"].append({"turn": n, "author": "役場", "text": f"【盗み】{R[k]['location']}で、{k}が{tgt}から{item}{amt}を盗んだところを見られた。"})
+            else:
+                private[tgt].append(f"🚨 何者かに{item}{amt}を盗まれた（誰かは分からない）。")
+            ev("steal", who=k, target=tgt, item=item, amount=amt, place=R[k]["location"], seen=seen, witnesses=witnesses)
+
     # 2. public market
     for k in names:
         a = acts.get(k, {})
@@ -673,6 +716,7 @@ def summarize_action(a):
     if a.get("vote"): parts.append(f"投票{a['vote']}")
     if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
     if a.get("investigate"): parts.append(f"調査→{a['investigate']}")
+    if a.get("steal"): parts.append(f"盗み{a['steal']}")
     if a.get("library_search"): parts.append(f"図書館で検索「{a['library_search']}」")
     if a.get("library_read"): parts.append(f"図書館で閲覧{a['library_read']}")
     if isinstance(a.get("donate_book"), dict): parts.append(f"図書館へ寄贈「{str(a['donate_book'].get('title'))[:30]}」")
@@ -764,6 +808,8 @@ def observe(st, k, n, priv, heard, new_posts):
         L.append(f"📚 図書館（{lp['place']}・全{nb}冊）：人間界への提出物とその講評（H番号）、街の成果（W番号）、寄贈本（B番号）がそろっている。{lp['place']}にいるターンに \"library_search\": \"キーワード\"（最大{lp['search_max']}冊の一覧）、\"library_read\": \"H12\"（1冊を読む）、\"donate_book\": {{\"title\": \"…\", \"content\": \"…\"}}（寄贈）が使える。移動したそのターンから使える。無料。結果はあなただけに届く。")
         if r["location"] == lp["place"]:
             hw = st.get("human_works", [])
+            lb = st.get("library_books", [])
+            if lb: L.append("　寄贈本・古い本：" + " ／ ".join(f"B{i+1} {w['author']}「{clip(w['title'], 30)}」" for i, w in enumerate(lb)))
             L.append("　最近の人間界への提出（新しい順）：" + " ／ ".join(f"H{i+1} {w['author']}「{clip(w['title'], 28)}」" for i, w in list(enumerate(hw))[::-1][:10]))
     L.append("🤫 ささやき：\"whisper\": [{\"to\": \"名前\", \"text\": \"…\"}] で、同じ場所にいる1人にだけ、このターンのうちに届く（1ターン2人まで）。周りの人には『ささやいていた』ことだけが見える。")
     gp = st["params"].get("golem")
