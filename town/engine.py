@@ -355,6 +355,16 @@ def main(n):
         elif t == "human_letter":
             st.setdefault("human_letters", []).append({"turn": n, "text": op["text"]})
             ev("human_letter", text=op["text"])
+        elif t == "warehouse_deposit":
+            w = op["from"]; item = op.get("item", "パン"); q = int(op["qty"]); price = int(op["price"])
+            if w in R and R[w]["inv"].get(item, 0) >= q and st.get("fund", 0) >= price * q:
+                move_items(w, "外部", {item: q}); st["fund"] -= price * q; move_items("外部", w, {COIN: price * q})
+                wh = st.setdefault("warehouse", {}); wh[item] = wh.get(item, 0) + q
+                st.setdefault("ledger", []).append({"turn": n, "kind": "支出", "what": f"倉庫へ{item}{q}（{w}から納品）", "amount": price * q})
+                private[w].append(f"🏚 基金の倉庫に{item}{q}個を1個{price}コインで納め、{price * q}コインを受け取った。")
+                ev("warehouse_deposit", who=w, item=item, qty=q, total=price * q)
+            else:
+                ev("warehouse_deposit_failed", **op)
         elif t == "pay_arrears":
             w = op["who"]; amt = min(int(op["amount"]), R[w]["arrears"], max(R[w]["coins"], 0))
             if amt > 0:
@@ -434,7 +444,7 @@ def main(n):
                         return o, d["price"]
                 return None
             wh = st.get("warehouse", {})
-            if st["params"].get("warehouse_bread") and wh.get("パン", 0) > 0 and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and not (st["params"].get("relief_means_test") and r["coins"] >= st["params"]["warehouse_bread"]["price"]):
+            if st["params"].get("warehouse_bread") and wh.get("パン", 0) > 0 and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and not (st["params"].get("relief_means_test") and r["coins"] >= max(st["params"]["public_buy"].values() if False else [st["params"]["public_buy"].get("輸入パン", st["params"]["public_buy"].get("パン", 12))])):
                 wh["パン"] -= 1; move_items("外部", k, {"パン": 1})
                 private[k].append("🧺 共同備蓄基金（備蓄倉庫）からパン1を無償で受け取った。")
                 ev("relief", who=k, item="パン", cost=0, source="倉庫"); ledger.append({"turn": n, "kind": "払い出し", "what": f"{k}へ倉庫のパン1", "amount": 0})
