@@ -227,6 +227,43 @@ def main(n):
                     private[k].append(f"🎭 p8により、{r['location']}での演奏（聴き手{len(listeners)}人：{'、'.join(listeners)}）に金庫から文化費{cf['per_event']}コインが出た。")
                     ev("culture_fund", who=k, amount=cf["per_event"], place=r["location"], listeners=listeners)
 
+    # 6b. golems: crafted at the workshop, work for their owner every turn
+    gp = st["params"].get("golem")
+    if gp:
+        G = st.setdefault("golems", [])
+        for g in list(G):
+            if g.get("broken"): continue
+            ow = g["owner"]
+            if ow not in R or R[ow].get("departed"): continue
+            if gp.get("break_chance") and rng.random() < gp["break_chance"]:
+                g["broken"] = n; private[ow].append(f"🗿 ゴーレム「{g['name']}」が崩れて動かなくなった。"); ev("golem_broken", owner=ow, name=g["name"]); continue
+            up = gp["upkeep"]
+            if not has(ow, up):
+                private[ow].append(f"🗿 ゴーレム「{g['name']}」は維持材料（{fmt(up)}）が無く、動かなかった。"); continue
+            _, cost, gain = WORK[g["job"]]
+            if not has(ow, {**cost, **{kk: cost.get(kk, 0) + vv for kk, vv in up.items()}}):
+                private[ow].append(f"🗿 ゴーレム「{g['name']}」は材料（{fmt(cost)}）が無く、動かなかった。"); continue
+            move_items(ow, "外部", up); move_items(ow, "外部", cost); move_items("外部", ow, gain)
+            private[ow].append(f"🗿 ゴーレム「{g['name']}」（{g['job']}）が働いた：{fmt(up)}{('と' + fmt(cost)) if cost else ''}を使い、{fmt(gain)}を得た。")
+            ev("golem_work", owner=ow, name=g["name"], job=g["job"], made=gain)
+        for k in names:
+            b = acts.get(k, {}).get("build_golem")
+            if not b: continue
+            if not isinstance(b, dict): b = {"name": str(b)}
+            gname = str(b.get("name") or f"{k}のゴーレム")[:20]; gjob = b.get("job")
+            mine = [g for g in G if g["owner"] == k and not g.get("broken")]
+            if R[k].get("visitor"): private[k].append("🗿 旅人はゴーレムを作れない。"); continue
+            if gjob not in gp["jobs"]: private[k].append(f"🗿 ゴーレムの仕事は {'・'.join(gp['jobs'])} から選ぶ（「{gjob}」は不可）。"); continue
+            if len(mine) >= gp["max_per_owner"]: private[k].append(f"🗿 動くゴーレムは1人{gp['max_per_owner']}体まで。"); continue
+            if R[k]["location"] != gp["place"]: private[k].append(f"🗿 ゴーレムは{gp['place']}でしか作れない。"); continue
+            if R[k]["health"] != "健康" or R[k]["hunger"] >= 2: private[k].append("🗿 体調か空腹のせいでゴーレムを作れなかった。"); continue
+            if not has(k, gp["cost"]): private[k].append(f"🗿 ゴーレムの材料（{fmt(gp['cost'])}）が足りない。"); continue
+            move_items(k, "外部", gp["cost"])
+            G.append({"name": gname, "owner": k, "job": gjob, "built": n})
+            private[k].append(f"🗿 ゴーレム「{gname}」（{gjob}）を作った。次のターンから毎ターン、あなたのために働く。")
+            st["board"].append({"turn": n, "author": "役場", "text": f"【ゴーレム誕生】{k}が工房でゴーレム「{gname}」（{gjob}）を作った。"})
+            ev("golem_built", owner=k, name=gname, job=gjob)
+
     # 7. say (after moves, same place)
     for k in names:
         s = acts.get(k, {}).get("say")
@@ -235,6 +272,22 @@ def main(n):
         for o in names:
             if o != k and R[o]["location"] == R[k]["location"]:
                 heard[o].append(f"💬 {k}: {s}")
+
+    # 7b. whisper: 1-on-1, same place, this turn; others nearby only notice that it happened
+    for k in names:
+        ws = acts.get(k, {}).get("whisper") or []
+        if isinstance(ws, dict): ws = [ws]
+        for w in ws[:2]:
+            to = w.get("to"); txt = str(w.get("text", ""))
+            if not valid_name(to) or to == k or R[to].get("departed"):
+                private[k].append(f"🤫 「{to}」にはささやけなかった。"); continue
+            if R[to]["location"] != R[k]["location"]:
+                private[k].append(f"🤫 {to}は同じ場所にいないので、ささやきは届かなかった。"); continue
+            heard[to].append(f"🤫 {k}があなたにだけささやいた: {txt}")
+            ev("whisper", who=k, to=to, place=R[k]["location"], text=txt)
+            for o in names:
+                if o not in (k, to) and R[o]["location"] == R[k]["location"]:
+                    heard[o].append(f"👀 {k}が{to}に何かささやいていた（内容は聞こえない）。")
 
     # 8. letters (delivered next turn), posts
     for k in names:
@@ -570,6 +623,9 @@ def summarize_action(a):
     if a.get("vote"): parts.append(f"投票{a['vote']}")
     if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
     if a.get("investigate"): parts.append(f"調査→{a['investigate']}")
+    ws = a.get("whisper") or []
+    for w in ([ws] if isinstance(ws, dict) else ws): parts.append(f"{w.get('to')}へささやき「{str(w.get('text',''))[:50]}」")
+    if a.get("build_golem"): parts.append(f"ゴーレム作成{a['build_golem']}")
     wo = a.get("work_output")
     if wo: parts.append(f"成果提出「{wo.get('title') if isinstance(wo, dict) else str(wo)[:30]}」")
     ho = a.get("human_output")
@@ -646,6 +702,13 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append(f"役場の金庫：{st['treasury']}コイン　共同備蓄基金：{st.get('fund', 0)}コイン　倉庫のパン：{st.get('warehouse', {}).get('パン', 0)}個　場所一覧：{'、'.join(st['places'])}")
     L.append("")
     L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}{'・旅人' if R[o].get('visitor') else ''}）" for o in R if o != k and not R[o].get("departed")))
+    L.append("")
+    gs = [g for g in st.get("golems", []) if not g.get("broken")]
+    if gs: L += ["🗿 街のゴーレム：" + "、".join(f"{g['name']}（{g['owner']}の{g['job']}）" for g in gs), ""]
+    L.append("🤫 ささやき：\"whisper\": [{\"to\": \"名前\", \"text\": \"…\"}] で、同じ場所にいる1人にだけ、このターンのうちに届く（1ターン2人まで）。周りの人には『ささやいていた』ことだけが見える。")
+    gp = st["params"].get("golem")
+    if gp:
+        L.append(f"🗿 ゴーレム：{gp['place']}で \"build_golem\": {{\"name\": \"名前\", \"job\": \"{'|'.join(gp['jobs'])}\"}} と書くと、{fmt(gp['cost'])}を使ってゴーレムを作れる。ゴーレムは次のターンから毎ターン、持ち主の持ち物から維持材料{fmt(gp['upkeep'])}（と仕事の材料）を使い、その仕事の生産物を持ち主に渡す。仕事場には行かなくてよい。しゃべらず、投票せず、食べない。1人{gp['max_per_owner']}体まで。ときどき崩れる（毎ターン約{int(gp['break_chance']*100)}%）。")
     L.append("")
     if st["params"].get("investigate"):
         L.append("🔍 調査：行動のJSONに \"investigate\": \"名前\" と書くと、相手の所持金・持ち物・滞納・体調（ターンの終わり時点）があなただけに届く。1ターンに1人、無料。相手には知らされない。")
