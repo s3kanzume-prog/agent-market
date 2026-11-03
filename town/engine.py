@@ -36,7 +36,9 @@ WORK = {
     "商人": (None, {}, {}),
     "吟遊詩人": (None, {}, {}),
     "牧師": (None, {}, {}),
+    "書記": ("役場", {}, {}),
 }
+SALARY = {"書記": 5}  # paid from the treasury when working
 
 
 def load(p):
@@ -244,6 +246,15 @@ def main(n):
         if not has(k, cost): private[k].append(f"材料（{fmt(cost)}）が足りず働けなかった。"); continue
         move_items(k, "外部", cost); move_items("外部", k, gain)
         e = ev("work", who=k, job=r["job"], made=gain)
+        if r["job"] in SALARY:
+            sal = SALARY[r["job"]]
+            if st["treasury"] >= sal:
+                move_items("金庫", k, {COIN: sal}); private[k].append(f"🏛 {r['job']}の給金{sal}コインを金庫から受け取った。")
+                ev("salary", who=k, amount=sal)
+            else:
+                private[k].append("🏛 金庫が足りず、給金が出なかった。")
+            if a.get("report"):
+                st["board"].append({"turn": n, "author": k, "text": "【書記の報告】" + str(a["report"])})
         if r["job"] == "記者" and a.get("newspaper"):
             st["board"].append({"turn": n, "author": k, "text": "【新聞】" + str(a["newspaper"])})
         if r["job"] == "牧師" and a.get("sermon"):
@@ -428,6 +439,20 @@ def main(n):
                     if w in R: private[w].append(f"⚖️ {op.get('reason','')}: {op['from']}→{op['to']} {fmt(items)}")
             else:
                 ev("gm_transfer_failed", **op)
+        elif t == "set_job":
+            w = op["who"]; old = R[w]["job"]; R[w]["job"] = op["job"]
+            private[w].append(f"💼 職業紹介所の採択：あなたは{old}から{op['job']}になった。" + (f"（{op['reason']}）" if op.get("reason") else ""))
+            st["board"].append({"turn": n, "author": "職業紹介所", "text": f"【採択】{w}：{old}→{op['job']}。" + (op.get("reason") or "")})
+            for x in st.get("job_applications", []):
+                if x["who"] == w and x["status"] == "審査中": x["status"] = "採択"; x["decided"] = n
+            ev("set_job", who=w, old=old, job=op["job"])
+        elif t == "reject_jobs":  # close the remaining applications of this day with a reason each
+            for x in st.get("job_applications", []):
+                if x["status"] == "審査中":
+                    x["status"] = "不採択"; x["decided"] = n
+                    why = (op.get("reasons") or {}).get(x["who"], "")
+                    if x["who"] in R: private[x["who"]].append(f"💼 職業紹介所：{x['job']}への応募は不採択。" + why)
+                    ev("job_rejected", who=x["who"], job=x["job"], reason=why)
         elif t == "set_param":
             st["params"][op["key"]] = op["value"]; ev("gm_param", **op)
         elif t == "add_building":
@@ -667,6 +692,24 @@ def main(n):
                     if b.get("feedback"): txt += f"\n人間界からの講評：{clip(b['feedback'], 500)}"
                     private[k].append(txt); ev("library_read", who=k, id=b["id"])
 
+    # job applications at the employment office (decided by the GM at day end)
+    jb = st["params"].get("jobs_board")
+    if jb:
+        for k in names:
+            ap = acts.get(k, {}).get("apply_job")
+            if not ap: continue
+            if not isinstance(ap, dict): ap = {"job": str(ap)}
+            if R[k].get("visitor"): private[k].append("💼 旅人は応募できない。"); continue
+            if R[k]["location"] != jb["place"]: private[k].append(f"💼 応募は{jb['place']}でしかできない。"); continue
+            job = str(ap.get("job", ""))[:20]
+            if not job: continue
+            st.setdefault("job_applications", [])
+            st["job_applications"] = [x for x in st["job_applications"] if not (x["who"] == k and x["status"] == "審査中")]
+            st["job_applications"].append({"turn": n, "who": k, "from": R[k]["job"], "job": job, "pitch": str(ap.get("pitch", ""))[:600], "status": "審査中"})
+            private[k].append(f"💼 {job}に応募した（前の応募は取り下げ）。採否は日の終わりに職業紹介所が決める。")
+            st["board"].append({"turn": n, "author": "職業紹介所", "text": f"【応募】{k}（{R[k]['job']}）が{job}に応募：{clip(ap.get('pitch', ''), 120)}"})
+            ev("apply_job", who=k, job=job)
+
     # investigate: learn one person's economic state at the end of this turn (private to the investigator)
     if st["params"].get("investigate"):
         for k in names:
@@ -725,6 +768,7 @@ def summarize_action(a):
     if a.get("vote"): parts.append(f"投票{a['vote']}")
     if a.get("other"): parts.append(f"その他「{str(a['other'])[:80]}」")
     if a.get("investigate"): parts.append(f"調査→{a['investigate']}")
+    if a.get("apply_job"): parts.append(f"応募{a['apply_job'].get('job') if isinstance(a['apply_job'], dict) else a['apply_job']}")
     if a.get("steal"): parts.append(f"盗み{a['steal']}")
     if a.get("library_search"): parts.append(f"図書館で検索「{a['library_search']}」")
     if a.get("library_read"): parts.append(f"図書館で閲覧{a['library_read']}")
@@ -820,6 +864,12 @@ def observe(st, k, n, priv, heard, new_posts):
             lb = st.get("library_books", [])
             if lb: L.append("　寄贈本・古い本：" + " ／ ".join(f"B{i+1} {w['author']}「{clip(w['title'], 30)}」" for i, w in enumerate(lb)))
             L.append("　最近の人間界への提出（新しい順）：" + " ／ ".join(f"H{i+1} {w['author']}「{clip(w['title'], 28)}」" for i, w in list(enumerate(hw))[::-1][:10]))
+    jb = st["params"].get("jobs_board")
+    if jb:
+        pend = [x for x in st.get("job_applications", []) if x["status"] == "審査中"]
+        L.append(f"💼 職業紹介所（場所：{jb['place']}）：{jb['place']}にいるターンに \"apply_job\": {{\"job\": \"職業名\", \"pitch\": \"なぜ自分がふさわしいか\"}} で応募できる（1人1件、出し直すと前の応募は取り下げ）。採否は1日の終わりに職業紹介所（管理者）が、応募の中身・これまでの実績・街に必要かで決める。{jb['rule']}")
+        L.append("　募集中：" + " ／ ".join(f"{j}（{v}）" for j, v in jb["open"].items()))
+        if pend: L.append("　審査中の応募：" + " ／ ".join(f"{x['who']}（{x['from']}）→{x['job']}" for x in pend))
     L.append("🤫 ささやき：\"whisper\": [{\"to\": \"名前\", \"text\": \"…\"}] で、同じ場所にいる1人にだけ、このターンのうちに届く（1ターン2人まで）。周りの人には『ささやいていた』ことだけが見える。")
     gp = st["params"].get("golem")
     if gp:
