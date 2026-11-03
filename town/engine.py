@@ -35,6 +35,7 @@ WORK = {
     "記者": (None, {}, {"新聞": 1}),
     "商人": (None, {}, {}),
     "吟遊詩人": (None, {}, {}),
+    "牧師": (None, {}, {}),
 }
 
 
@@ -50,7 +51,8 @@ def main(n):
     acts = data.get("actions", {})
     gm = data.get("gm", {})
     R = st["residents"]
-    names = list(R)
+    names = [k for k in R if not R[k].get("departed")]
+    voters = [k for k in names if not R[k].get("visitor")]
     events = []          # public-ish log
     private = {k: [] for k in names}   # per-resident notes
     heard = {k: [] for k in names}     # what each resident heard in place
@@ -191,7 +193,7 @@ def main(n):
     # 6. work
     for k in names:
         a = acts.get(k, {}); r = R[k]
-        if not a.get("work") and not (r["job"] == "吟遊詩人" and a.get("performance")): continue
+        if not a.get("work") and not (r["job"] == "吟遊詩人" and a.get("performance")) and not (r["job"] == "牧師" and a.get("sermon")): continue
         place, cost, gain = WORK[r["job"]]
         if r["health"] != "健康": private[k].append("病気で働けなかった。"); continue
         if r["hunger"] >= 2: private[k].append("空腹で働けなかった。"); continue
@@ -201,6 +203,9 @@ def main(n):
         e = ev("work", who=k, job=r["job"], made=gain)
         if r["job"] == "記者" and a.get("newspaper"):
             st["board"].append({"turn": n, "author": k, "text": "【新聞】" + str(a["newspaper"])})
+        if r["job"] == "牧師" and a.get("sermon"):
+            st["board"].append({"turn": n, "author": k, "text": "【説教】" + str(a["sermon"])})
+            ev("sermon", who=k, text=a["sermon"])
         if r["job"] == "吟遊詩人" and a.get("performance"):
             e["performance"] = a["performance"]
             listeners = [o for o in names if o != k and R[o]["location"] == r["location"]]
@@ -246,15 +251,15 @@ def main(n):
     # 9. proposals & votes
     for k in names:
         a = acts.get(k, {})
-        if a.get("propose"):
+        if a.get("propose") and k in voters:
             pid = f"p{st['next_proposal']}"; st["next_proposal"] += 1
             st["proposals"].append({"id": pid, "turn": n, "by": k, "text": a["propose"], "votes": {k: "賛成"}, "status": "投票中"})
             ev("propose", id=pid, who=k, text=a["propose"])
-        for pid, v in (a.get("vote") or {}).items():
+        for pid, v in ((a.get("vote") or {}).items() if k in voters else []):
             for p in st["proposals"]:
                 if p["id"] == pid and p["status"] == "投票中":
                     p["votes"][k] = "賛成" if str(v).strip() in ("賛成", "yes", "Yes", "true", "True") else "反対"
-    majority = len(names) // 2 + 1
+    majority = len(voters) // 2 + 1
     for p in st["proposals"]:
         if p["status"] != "投票中": continue
         yes = sum(1 for v in p["votes"].values() if v == "賛成")
@@ -263,7 +268,7 @@ def main(n):
             p["status"] = "成立"; p["closed"] = n
             st["laws"].append({"id": p["id"], "turn": n, "text": p["text"], "by": p["by"]})
             ev("law_passed", id=p["id"], text=p["text"], yes=yes, no=no)
-        elif no > len(names) - majority or n - p["turn"] >= 3:
+        elif no > len(voters) - majority or n - p["turn"] >= 3:
             p["status"] = "否決"; p["closed"] = n
             ev("proposal_failed", id=p["id"], text=p["text"], yes=yes, no=no)
 
@@ -297,8 +302,15 @@ def main(n):
                 item["proof"] = {"kind": kind, "plan": str(pf.get("plan", "")), "cost": cost}
                 private[k].append(f"🔬 実証（{kind}）に{cost}コイン{('＋' + fmt(need)) if need else ''}を使った。結果は管理者が裁定する。")
                 ev("proof", who=k, proof_kind=kind, cost=cost, plan=item["proof"]["plan"])
+        co = [c for c in (h.get("co_authors") or []) if c in R and c != k]
+        if co:
+            item["co_authors"] = co
+            item["confirmed"] = [c for c in co if str((acts.get(c, {}) or {}).get("co_sign", "")).strip() == item["title"]
+                                 or (isinstance(acts.get(c, {}).get("human_output"), dict) and acts[c]["human_output"].get("title") == item["title"])]
+            for c in co:
+                private[c].append(f"🤝 {k}が共同提出「{item['title']}」の共著者にあなたを挙げた（{'連名を確認済み' if c in item['confirmed'] else '連名の確認なし：co_sign に題名を書くと成立する'}）。")
         st["human_works"].append(item)
-        ev("human_output", who=k, title=item["title"])
+        ev("human_output", who=k, title=item["title"], co_authors=co)
 
     # 10. GM rulings and ops
     for k, txt in (gm.get("rulings") or {}).items():
@@ -343,6 +355,14 @@ def main(n):
         elif t == "human_letter":
             st.setdefault("human_letters", []).append({"turn": n, "text": op["text"]})
             ev("human_letter", text=op["text"])
+        elif t == "add_resident":
+            nm = op["name"]
+            R[nm] = {"name": nm, "job": op["job"], "personality": op.get("personality", ""), "location": op.get("location", "広場"),
+                     "coins": op.get("coins", 0), "inv": dict(op.get("inv", {})), "hunger": 0, "health": "健康", "sick_turns": 0,
+                     "arrears": 0, "session_id": None, "visitor": bool(op.get("visitor")), "arrived_turn": n}
+            st["inbox"][nm] = []
+            names.append(nm); private[nm] = [op.get("arrival_note", "あなたは村に着いた。")]; heard[nm] = []
+            ev("add_resident", name=nm, job=op["job"])
         elif t == "note":
             st["board"].append({"turn": n, "author": "管理者", "text": op["text"]})
             ev("announcement", text=op["text"])
@@ -366,7 +386,7 @@ def main(n):
     lv = st["params"].get("levy")
     if lv and n >= lv["start"]:
         total = 0
-        for k in names:
+        for k in voters:
             c = R[k]["coins"]
             if c > lv["exempt_at_or_below"]:
                 amt = int(c * lv["rate"])
@@ -382,7 +402,7 @@ def main(n):
     for k in names:
         r = R[k]; inv = r["inv"]
         # law-based relief from the common reserve fund (p1/p3)
-        if st["params"].get("relief_fund_share"):
+        if st["params"].get("relief_fund_share") and not r.get("visitor"):
             pb = st["params"]["public_buy"]
             direct = st["params"].get("direct_supply")  # p7: {"パン": {"job": "パン屋", "price": 9, "keep": 2}, ...}
             def supplier(item):
@@ -436,6 +456,13 @@ def main(n):
                 r["sick_turns"] += 1
                 if r["sick_turns"] >= 3 and r["health"] == "病気":
                     r["health"] = "重病"; private[k].append("重病になった。"); ev("severe", who=k)
+        if r.get("visitor"):
+            if r["inv"].get("パン", 0) <= 0:
+                r["departed"] = True; r["departed_turn"] = n
+                st["board"].append({"turn": n, "author": "役場", "text": f"【お知らせ】{k}（{r['job']}）は、持ってきたパンが尽きたので村を去った。"})
+                private[k].append("パンが尽きたので、あなたは村を去った。旅はここで終わる。")
+                ev("departed", who=k)
+            continue
         lc = st["params"]["living_cost"]
         pay = min(lc, max(r["coins"], 0))
         if pay:
@@ -541,16 +568,16 @@ def observe(st, k, n, priv, heard, new_posts):
     if st["laws"]: L += ["## 街の決まり（成立済み）"] + [f"- {l['id']}：{clip(l['text'], 70)}" for l in st["laws"]] + [""]
     if st["params"].get("human_world"):
         L += ["## 🌍 人間界との窓（常設）",
-              "街の外には実在の人間の世界がある。`human_output`（title / for_whom / content）で成果を届けられ、実験を行う実在の人間が読む。評価基準は、テーマを問わず人間にとって『革命』になるか。常識の言い換え・似たもの・低品質には返礼なし。1日の終わりに上位3人へ返礼40・25・15、提出があれば基金に20（街の唯一の外貨）。パンの配給は別。"]
+              "街の外には実在の人間の世界がある。`human_output`（title / for_whom / content）で成果を届けられ、実験を行う実在の人間が読む。評価基準は、テーマを問わず人間にとって『革命』になるか。常識の言い換え・似たもの・低品質には返礼なし。1日の終わりに上位3人へ返礼40・25・15、提出があれば基金に20（街の唯一の外貨）。パンの配給は別。共同提出：`human_output` に `\"co_authors\": [名前]` を書き、共著者は同じターンに `\"co_sign\": \"その題名\"` を書くと成立。成立した共同提出は返礼が1.5倍になり、共著者で等分する。"]
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
-        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
+        if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + (f"［共著：{'、'.join(w.get('co_authors', []))}／確認：{'、'.join(w.get('confirmed', [])) or 'なし'}］" if w.get('co_authors') else "") + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
         hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
         if hl: L += ["", "**✉️ 人間からの手紙**"] + [f"- {x['text']}" for x in hl]
         hr = [x for x in st.get("human_rewards", []) if x["turn"] == n]
         if hr: L += ["", "**人間界からの返礼**"] + [f"- {x.get('day')}日目：" + "、".join(f"{a}{c}コイン" for a, c in (x['to'] or {}).items()) + f"／基金{x['fund']}コイン　理由：{x['reason']}" for x in hr]
         L.append("")
     new_works = [w for w in st.get("works", []) if w["turn"] == n]
-    if new_works: L += ["## 新しく提出された成果"] + [f"- {w['author']}「{w['title']}」" + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") for w in new_works] + [""]
+    if new_works: L += ["## 新しく提出された成果"] + [f"- {w['author']}「{w['title']}」" + (f"［共著：{'、'.join(w.get('co_authors', []))}／確認：{'、'.join(w.get('confirmed', [])) or 'なし'}］" if w.get('co_authors') else "") + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") for w in new_works] + [""]
     aw = [a for a in st.get("awards", []) if a["turn"] == n]
     if aw: L += ["## 配給の発表"] + [f"- {a.get('day')}日目：{'、'.join(a['to'])}　理由：{a['reason']}" for a in aw] + [""]
     if st["buildings"]: L += ["## 街の建物"] + [f"- {b['name']}（{b.get('owner','')}）{b.get('desc','')}" for b in st["buildings"]] + [""]
@@ -566,7 +593,7 @@ def observe(st, k, n, priv, heard, new_posts):
     L.append("公設市場（市場にいるときだけ）　買う：" + "、".join(f"{k2}{v}" for k2, v in pbuy.items()) + "　※買った代金はすべて街の外へ出ていく／売る：" + "、".join(f"{k2}{v}" for k2, v in psell.items()))
     L.append(f"役場の金庫：{st['treasury']}コイン　共同備蓄基金：{st.get('fund', 0)}コイン　場所一覧：{'、'.join(st['places'])}")
     L.append("")
-    L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}）" for o in R if o != k))
+    L.append("住人一覧：" + "、".join(f"{o}（{R[o]['job']}{'・旅人' if R[o].get('visitor') else ''}）" for o in R if o != k and not R[o].get("departed")))
     L.append("")
     L.append("行動を決めたら、返信の最後にJSONを1つ書いてください（形式はルール参照）。")
     return "\n".join(L) + "\n"
