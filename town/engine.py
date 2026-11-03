@@ -583,14 +583,14 @@ def main(n):
                 private[k].append("🧺 共同備蓄基金（備蓄倉庫）からパン1を無償で受け取った。")
                 ev("relief", who=k, item="パン", cost=0, source="倉庫"); ledger.append({"turn": n, "kind": "払い出し", "what": f"{k}へ倉庫のパン1", "amount": 0})
             sp = supplier("パン")
-            if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= sp[1]):
+            if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= pb.get("輸入パン", pb.get("パン", 12))):
                 o, price = sp; st["fund"] -= price
                 move_items(o, k, {"パン": 1}); move_items("外部", o, {COIN: price})
                 private[k].append(f"🧺 共同備蓄基金から、{o}のパン1を無償で受け取った（基金が{o}に{price}コインで支払い）。")
                 private[o].append(f"🧺 決まりp7により、基金の求めで{k}へパン1を納め、基金から{price}コインを受け取った。")
                 ev("relief", who=k, item="パン", cost=price, supplier=o); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へパン1（{o}から直接）", "amount": price})
             sp = supplier("薬")
-            if sp and r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= sp[1]):
+            if sp and r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= pb["薬"]):
                 o, price = sp; st["fund"] -= price
                 move_items(o, k, {"薬": 1}); move_items("外部", o, {COIN: price})
                 private[k].append(f"🧺 共同備蓄基金から、{o}の薬1を無償で受け取った（基金が{o}に{price}コインで支払い）。")
