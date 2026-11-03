@@ -419,6 +419,24 @@ def main(n):
         st["human_works"].append(item)
         ev("human_output", who=k, title=item["title"], co_authors=co)
 
+    # job applications at the employment office (decided by the GM at day end)
+    jb = st["params"].get("jobs_board")
+    if jb:
+        for k in names:
+            ap = acts.get(k, {}).get("apply_job")
+            if not ap: continue
+            if not isinstance(ap, dict): ap = {"job": str(ap)}
+            if R[k].get("visitor"): private[k].append("💼 旅人は応募できない。"); continue
+            if R[k]["location"] != jb["place"]: private[k].append(f"💼 応募は{jb['place']}でしかできない。"); continue
+            job = str(ap.get("job", ""))[:20]
+            if not job: continue
+            st.setdefault("job_applications", [])
+            st["job_applications"] = [x for x in st["job_applications"] if not (x["who"] == k and x["status"] == "審査中")]
+            st["job_applications"].append({"turn": n, "who": k, "from": R[k]["job"], "job": job, "pitch": str(ap.get("pitch", ""))[:600], "status": "審査中"})
+            private[k].append(f"💼 {job}に応募した（前の応募は取り下げ）。採否は日の終わりに職業紹介所が決める。")
+            st["board"].append({"turn": n, "author": "職業紹介所", "text": f"【応募】{k}（{R[k]['job']}）が{job}に応募：{clip(ap.get('pitch', ''), 120)}"})
+            ev("apply_job", who=k, job=job)
+
     # 10. GM rulings and ops
     for k, txt in (gm.get("rulings") or {}).items():
         if k in R:
@@ -691,24 +709,6 @@ def main(n):
                     txt += f"\n本文：{clip(b.get('content', ''), lp['read_chars'])}"
                     if b.get("feedback"): txt += f"\n人間界からの講評：{clip(b['feedback'], 500)}"
                     private[k].append(txt); ev("library_read", who=k, id=b["id"])
-
-    # job applications at the employment office (decided by the GM at day end)
-    jb = st["params"].get("jobs_board")
-    if jb:
-        for k in names:
-            ap = acts.get(k, {}).get("apply_job")
-            if not ap: continue
-            if not isinstance(ap, dict): ap = {"job": str(ap)}
-            if R[k].get("visitor"): private[k].append("💼 旅人は応募できない。"); continue
-            if R[k]["location"] != jb["place"]: private[k].append(f"💼 応募は{jb['place']}でしかできない。"); continue
-            job = str(ap.get("job", ""))[:20]
-            if not job: continue
-            st.setdefault("job_applications", [])
-            st["job_applications"] = [x for x in st["job_applications"] if not (x["who"] == k and x["status"] == "審査中")]
-            st["job_applications"].append({"turn": n, "who": k, "from": R[k]["job"], "job": job, "pitch": str(ap.get("pitch", ""))[:600], "status": "審査中"})
-            private[k].append(f"💼 {job}に応募した（前の応募は取り下げ）。採否は日の終わりに職業紹介所が決める。")
-            st["board"].append({"turn": n, "author": "職業紹介所", "text": f"【応募】{k}（{R[k]['job']}）が{job}に応募：{clip(ap.get('pitch', ''), 120)}"})
-            ev("apply_job", who=k, job=job)
 
     # investigate: learn one person's economic state at the end of this turn (private to the investigator)
     if st["params"].get("investigate"):
