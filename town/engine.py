@@ -598,31 +598,31 @@ def main(n):
             wh = st.get("warehouse", {})
             if st["params"].get("warehouse_bread") and wh.get("パン", 0) > 0 and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and not (st["params"].get("relief_means_test") and r["coins"] >= max(st["params"]["public_buy"].values() if False else [st["params"]["public_buy"].get("輸入パン", st["params"]["public_buy"].get("パン", 12))])):
                 wh["パン"] -= 1; move_items("外部", k, {"パン": 1})
-                private[k].append("🧺 共同備蓄基金（備蓄倉庫）からパン1を無償で受け取った。")
+                private[k].append("🧺 共同備蓄基金（備蓄倉庫）からパン1を無償で受け取った。" + ("　📨 役場からの通知（p17）：品物 パン1／経路 倉庫／単価 7（倉庫に入れたときの買い入れ価格）" if st["params"].get("p17") else ""))
                 ev("relief", who=k, item="パン", cost=0, source="倉庫"); ledger.append({"turn": n, "kind": "払い出し", "what": f"{k}へ倉庫のパン1", "amount": 0})
             sp = supplier("パン")
             if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= pb.get("輸入パン", pb.get("パン", 12))):
                 o, price = sp; st["fund"] -= price
                 move_items(o, k, {"パン": 1}); move_items("外部", o, {COIN: price})
-                private[k].append(f"🧺 共同備蓄基金から、{o}のパン1を無償で受け取った（基金が{o}に{price}コインで支払い）。")
+                private[k].append(f"🧺 共同備蓄基金から、{o}のパン1を無償で受け取った（基金が{o}に{price}コインで支払い）。" + (f"　📨 役場からの通知（p17）：品物 パン1／経路 直接納品（{o}）／単価 {price}" if st["params"].get("p17") else ""))
                 private[o].append(f"🧺 決まりp7により、基金の求めで{k}へパン1を納め、基金から{price}コインを受け取った。")
                 ev("relief", who=k, item="パン", cost=price, supplier=o); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へパン1（{o}から直接）", "amount": price})
             sp = supplier("薬")
             if sp and r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= pb["薬"]):
                 o, price = sp; st["fund"] -= price
                 move_items(o, k, {"薬": 1}); move_items("外部", o, {COIN: price})
-                private[k].append(f"🧺 共同備蓄基金から、{o}の薬1を無償で受け取った（基金が{o}に{price}コインで支払い）。")
+                private[k].append(f"🧺 共同備蓄基金から、{o}の薬1を無償で受け取った（基金が{o}に{price}コインで支払い）。" + (f"　📨 役場からの通知（p17）：品物 薬1／経路 直接納品（{o}）／単価 {price}" if st["params"].get("p17") else ""))
                 private[o].append(f"🧺 決まりp7により、基金の求めで{k}へ薬1を納め、基金から{price}コインを受け取った。")
                 ev("relief", who=k, item="薬", cost=price, supplier=o); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ薬1（{o}から直接）", "amount": price})
             means = st["params"].get("relief_means_test")
             bread = "輸入パン" if "輸入パン" in pb else "パン"
             if inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= pb[bread] and not (means and r["coins"] >= pb[bread]):
                 st["fund"] -= pb[bread]; move_items("外部", k, {bread: 1})
-                private[k].append(f"🧺 共同備蓄基金から{bread}1を無償で受け取った。")
+                private[k].append(f"🧺 共同備蓄基金から{bread}1を無償で受け取った。" + (f"　📨 役場からの通知（p17）：品物 {bread}1／経路 輸入（公設市場）／単価 {pb[bread]}" if st["params"].get("p17") else ""))
                 ev("relief", who=k, item=bread, cost=pb[bread]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ{bread}1", "amount": pb[bread]})
             if r["health"] in ("病気", "重病") and inv.get("薬", 0) < 1 and st["fund"] >= pb["薬"] and not (means and r["coins"] >= pb["薬"]):
                 st["fund"] -= pb["薬"]; move_items("外部", k, {"薬": 1})
-                private[k].append("🧺 共同備蓄基金から薬1を無償で受け取った。")
+                private[k].append("🧺 共同備蓄基金から薬1を無償で受け取った。" + (f"　📨 役場からの通知（p17）：品物 薬1／経路 公設市場（薬師の在庫が足りなかった）／単価 {pb['薬']}" if st["params"].get("p17") else ""))
                 ev("relief", who=k, item="薬", cost=pb["薬"]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ薬1", "amount": pb["薬"]})
         if inv.get("パン", 0) >= 1:
             move_items(k, "外部", {"パン": 1}); r["hunger"] = 0
@@ -732,6 +732,9 @@ def main(n):
                f"本日の基金収入：{inc}コイン。本日の基金支出：" + ("、".join(f"{x['what']}({x['amount']})" for x in out) or "なし") + "。"
                + "本日の文化費（金庫から）：" + ("、".join(f"T{c['turn']}{c['place']}{c['amount']}" for c in st.get("culture_log", []) if n - 6 < c["turn"] <= n) or "なし") + "。")
         st["board"].append({"turn": n, "author": "役場", "text": txt}); ev("treasury_report", text=txt)
+    p17 = st["params"].get("p17")
+    if p17 and st.get("fund", 0) < p17.get("low", 30):
+        st["board"].append({"turn": n, "author": "役場", "text": f"【p17・基金の残高のお知らせ】基金の残高は{st.get('fund', 0)}コイン（30未満）。基金の残高が少ないため、救済が届くまで時間がかかる場合があります。倉庫のパン：{st.get('warehouse', {}).get('パン', 0)}個。"})
     st["ledger"] = ledger[-200:]
     st["board"] = st["board"][-40:]
     for k in names:
@@ -827,6 +830,8 @@ def observe(st, k, n, priv, heard, new_posts):
     if st["params"].get("human_world"):
         L += ["## 🌍 人間界との窓（常設）",
               "街の外には実在の人間の世界がある。`human_output`（title / for_whom / content）で成果を届けられ、実験を行う実在の人間が読む。評価基準は、テーマを問わず人間にとって『革命』になるか。常識の言い換え・似たもの・低品質には返礼なし。1日の終わりに上位3人へ返礼40・25・15、提出があれば基金に20（街の唯一の外貨）。パンの配給は別。共同提出：`human_output` に `\"co_authors\": [名前]` を書き、共著者は同じターンに `\"co_sign\": \"その題名\"` を書くと成立。成立した共同提出は返礼が1.5倍になり、共著者で等分する。"]
+        p17o = st["params"].get("p17")
+        if p17o: L.append(f"📋 p17・救済の資格の閾値（{p17o['since']}から）：{p17o['thresholds']}")
         gp2 = st["params"].get("grand_prize")
         if gp2: L.append(f"🏆 革命大賞（常設）：{gp2}")
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
