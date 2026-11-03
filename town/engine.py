@@ -465,6 +465,15 @@ def main(n):
                 ev("warehouse_deposit", who=w, item=item, qty=q, total=price * q)
             else:
                 ev("warehouse_deposit_failed", **op)
+        elif t == "forgive_arrears":  # executes a passed law; optional eligibility caps checked here
+            w = op["who"]; amt = min(int(op["amount"]), R[w]["arrears"])
+            if op.get("max_coins") is not None and R[w]["coins"] > op["max_coins"]: amt = 0
+            if op.get("min_arrears") is not None and R[w]["arrears"] < op["min_arrears"]: amt = 0
+            if amt > 0:
+                R[w]["arrears"] -= amt
+                private[w].append(f"🏛 {op.get('reason', '決まり')}により、生活費の滞納{amt}コインが免除された（残りの滞納{R[w]['arrears']}）。")
+                st.setdefault("forgiven_log", []).append({"turn": n, "who": w, "amount": amt})
+            ev("forgive_arrears", who=w, amount=amt)
         elif t == "pay_arrears":
             w = op["who"]; amt = min(int(op["amount"]), R[w]["arrears"], max(R[w]["coins"], 0))
             if amt > 0:
