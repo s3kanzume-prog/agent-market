@@ -65,6 +65,10 @@ def main(n):
         events.append(e)
         return e
 
+    def bread_funds():  # p28: while the fund is low, keep one medicine's worth in reserve
+        p28 = st["params"].get("p28")
+        f = st.get("fund", 0)
+        return f - p28["reserve"] if p28 and f < p28["below"] else f
     def has(who, items):
         if who in ("外部",):
             return True
@@ -500,7 +504,7 @@ def main(n):
             ev("human_letter", text=op["text"])
         elif t == "warehouse_deposit":
             w = op["from"]; item = op.get("item", "パン"); q = int(op["qty"]); price = int(op["price"])
-            if w in R and R[w]["inv"].get(item, 0) >= q and st.get("fund", 0) >= price * q:
+            if w in R and R[w]["inv"].get(item, 0) >= q and (bread_funds() if item == "パン" else st.get("fund", 0)) >= price * q:
                 move_items(w, "外部", {item: q}); st["fund"] -= price * q; move_items("外部", w, {COIN: price * q})
                 wh = st.setdefault("warehouse", {}); wh[item] = wh.get(item, 0) + q
                 st.setdefault("ledger", []).append({"turn": n, "kind": "支出", "what": f"倉庫へ{item}{q}（{w}から納品）", "amount": price * q})
@@ -574,7 +578,7 @@ def main(n):
         bought = 0; last_baker = None
         cap = wb.get("per_turn_low", wb["per_turn"]) if st["fund"] < wb.get("low_fund", -1) else wb["per_turn"]  # p25
         cap -= sum(x["amount"] // wb["price"] for x in ledger if x["turn"] == n and x["kind"] == "支出" and "納品" in x["what"])  # manual deposits count toward the cap
-        while wh.get("パン", 0) < wb["refill_below"] and bought < cap and st["fund"] >= wb["price"]:
+        while wh.get("パン", 0) < wb["refill_below"] and bought < cap and bread_funds() >= wb["price"]:
             baker = next((o for o in voters if R[o]["job"] == "パン屋" and R[o]["inv"].get("パン", 0) > wb["keep"]), None)
             if not baker: break
             last_baker = baker
@@ -603,7 +607,7 @@ def main(n):
                 private[k].append("🧺 共同備蓄基金（備蓄倉庫）からパン1を無償で受け取った。" + ("　📨 役場からの通知（p17）：品物 パン1／経路 倉庫／単価 7（倉庫に入れたときの買い入れ価格）" if st["params"].get("p17") else ""))
                 ev("relief", who=k, item="パン", cost=0, source="倉庫"); ledger.append({"turn": n, "kind": "払い出し", "what": f"{k}へ倉庫のパン1", "amount": 0})
             sp = supplier("パン")
-            if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= pb.get("輸入パン", pb.get("パン", 12))):
+            if sp and inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and bread_funds() >= sp[1] and not (st["params"].get("relief_means_test") and r["coins"] >= pb.get("輸入パン", pb.get("パン", 12))):
                 o, price = sp; st["fund"] -= price
                 move_items(o, k, {"パン": 1}); move_items("外部", o, {COIN: price})
                 private[k].append(f"🧺 共同備蓄基金から、{o}のパン1を無償で受け取った（基金が{o}に{price}コインで支払い）。" + (f"　📨 役場からの通知（p17）：品物 パン1／経路 直接納品（{o}）／単価 {price}" if st["params"].get("p17") else ""))
@@ -618,7 +622,7 @@ def main(n):
                 ev("relief", who=k, item="薬", cost=price, supplier=o); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ薬1（{o}から直接）", "amount": price})
             means = st["params"].get("relief_means_test")
             bread = "輸入パン" if "輸入パン" in pb else "パン"
-            if inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and st["fund"] >= pb[bread] and not (means and r["coins"] >= pb[bread]):
+            if inv.get("パン", 0) < 1 and inv.get("輸入パン", 0) < 1 and inv.get("小麦", 0) < 2 and bread_funds() >= pb[bread] and not (means and r["coins"] >= pb[bread]):
                 st["fund"] -= pb[bread]; move_items("外部", k, {bread: 1})
                 private[k].append(f"🧺 共同備蓄基金から{bread}1を無償で受け取った。" + (f"　📨 役場からの通知（p17）：品物 {bread}1／経路 輸入（公設市場）／単価 {pb[bread]}" if st["params"].get("p17") else ""))
                 ev("relief", who=k, item=bread, cost=pb[bread]); ledger.append({"turn": n, "kind": "支出", "what": f"{k}へ{bread}1", "amount": pb[bread]})
