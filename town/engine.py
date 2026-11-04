@@ -572,7 +572,9 @@ def main(n):
     if wb:
         wh = st.setdefault("warehouse", {})
         bought = 0; last_baker = None
-        while wh.get("パン", 0) < wb["refill_below"] and bought < wb["per_turn"] and st["fund"] >= wb["price"]:
+        cap = wb.get("per_turn_low", wb["per_turn"]) if st["fund"] < wb.get("low_fund", -1) else wb["per_turn"]  # p25
+        cap -= sum(x["amount"] // wb["price"] for x in ledger if x["turn"] == n and x["kind"] == "支出" and "納品" in x["what"])  # manual deposits count toward the cap
+        while wh.get("パン", 0) < wb["refill_below"] and bought < cap and st["fund"] >= wb["price"]:
             baker = next((o for o in voters if R[o]["job"] == "パン屋" and R[o]["inv"].get("パン", 0) > wb["keep"]), None)
             if not baker: break
             last_baker = baker
