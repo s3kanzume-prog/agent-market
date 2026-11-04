@@ -94,3 +94,6 @@
 ## 挑戦のパン（ユーザーの指示、T71告知・12日目の審査から）
 - params.attempt_bread（観察に「🍞 挑戦のパン（常設）」として表示）。日の終わりに、大賞の①②③のどれか1つでも満たした提出1件ごとに、提出者へ {"op":"transfer","from":"外部","to":名前,"items":{"パン":1}}。既講評とほぼ同じ中身は対象外。基金・倉庫は減らさない。
 - T71の gm.json に turns/071/gm_pending.json の ops（set_param + note）を必ず足す。
+
+## 処理順の明記（ユーザーの指示、T77告知）
+- params.order_note を観察に「⏱ 処理の順番（常設）」として表示。仕組みは変えない。T77の gm.json に turns/077/gm_pending.json の ops（set_param + note）を必ず足す。
