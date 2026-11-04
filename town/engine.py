@@ -857,6 +857,8 @@ def observe(st, k, n, priv, heard, new_posts):
         if p17o: L.append(f"📋 p17・救済の資格の閾値（{p17o['since']}から）：{p17o['thresholds']}")
         gp2 = st["params"].get("grand_prize")
         if gp2: L.append(f"🏆 革命大賞（常設）：{gp2}")
+        ab = st["params"].get("attempt_bread")
+        if ab: L.append(f"🍞 挑戦のパン（常設）：{ab}")
         dpo = st["params"].get("death")
         if dpo: L.append(f"☠️ 死亡ルール（ターン{dpo['since']}から）：{dpo['text']}")
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
