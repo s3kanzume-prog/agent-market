@@ -728,8 +728,13 @@ def main(n):
     if st["params"].get("daily_treasury_report") and n % 6 == 0:
         day = [x for x in ledger if n - 6 < x["turn"] <= n]
         inc = sum(x["amount"] for x in day if x["kind"] == "収入"); out = [x for x in day if x["kind"] == "支出"]
-        txt = (f"【役場の日次報告・{n // 6}日目】金庫：{st['treasury']}コイン／共同備蓄基金：{st['fund']}コイン。"
-               f"本日の基金収入：{inc}コイン。本日の基金支出：" + ("、".join(f"{x['what']}({x['amount']})" for x in out) or "なし") + "。"
+        outsum = sum(x["amount"] for x in out)
+        fee = sum(x["amount"] for x in day if x["kind"] == "収入" and x["what"].endswith("の生活費"))
+        big = [x for x in day if x["kind"] == "収入" and not x["what"].endswith("の生活費")]
+        incd = "、".join(f"T{x['turn']}{x['what']}({x['amount']})" for x in big) + (f"、生活費の積立 計{fee}" if fee else "")
+        txt = (f"【役場の日次報告・{n // 6}日目】金庫：{st['treasury']}コイン／共同備蓄基金：{st['fund']}コイン"
+               f"（前日末{st['fund'] - inc + outsum}＋収入{inc}−支出{outsum}）。"
+               f"本日の基金収入：{inc}コイン（内訳：{incd or 'なし'}）。本日の基金支出：" + ("、".join(f"{x['what']}({x['amount']})" for x in out) or "なし") + "。"
                + "本日の文化費（金庫から）：" + ("、".join(f"T{c['turn']}{c['place']}{c['amount']}" for c in st.get("culture_log", []) if n - 6 < c["turn"] <= n) or "なし") + "。")
         st["board"].append({"turn": n, "author": "役場", "text": txt}); ev("treasury_report", text=txt)
     p17 = st["params"].get("p17")
