@@ -663,6 +663,24 @@ def main(n):
         if pay < lc:
             r["arrears"] += lc - pay; private[k].append(f"生活費を払えず、滞納が{r['arrears']}コインになった。")
             ev("arrears", who=k, total=r["arrears"])
+        dp = st["params"].get("death")  # death rule (announced in advance; active from dp["since"])
+        if dp:
+            cause = None
+            if r["hunger"] >= dp["hunger"]: cause = f"空腹が{r['hunger']}ターン続いた"
+            elif r["health"] == "重病" and r["sick_turns"] >= dp["severe_total"]: cause = "重病のまま薬が届かなかった"
+            if cause and n >= dp["since"]:
+                r["departed"] = True; r["died"] = True; r["departed_turn"] = n
+                c = r["coins"]
+                if c > 0: move_items(k, "外部", {COIN: c}); st["fund"] += c; ledger.append({"turn": n, "kind": "収入", "what": f"{k}の遺したコイン", "amount": c})
+                r["inv"] = {}
+                st["board"].append({"turn": n, "author": "役場", "text": f"【訃報】{k}（{r['job']}）が亡くなった（{cause}）。遺したコイン{c}は共同備蓄基金に入り、持ち物は失われた。"})
+                private[k].append(f"あなたは亡くなった（{cause}）。街での暮らしはここで終わる。")
+                ev("died", who=k, cause=cause, coins=c)
+            elif n >= dp["since"] - 3:
+                left_h = dp["hunger"] - r["hunger"]
+                if r["hunger"] >= 1: private[k].append(f"⚠️ 死亡ルール：空腹が{dp['hunger']}になると亡くなる（いま空腹{r['hunger']}、あと{left_h}ターン食べられないと死ぬ）。")
+                if r["health"] in ("病気", "重病") and r["sick_turns"] >= 1:
+                    private[k].append(f"⚠️ 死亡ルール：病気が薬なしで{dp['severe_total']}ターン続くと亡くなる（いま{r['sick_turns']}ターン目、{r['health']}）。")
 
     # library: search / read / donate (only while at the library; private results)
     lp = st["params"].get("library")
@@ -839,6 +857,8 @@ def observe(st, k, n, priv, heard, new_posts):
         if p17o: L.append(f"📋 p17・救済の資格の閾値（{p17o['since']}から）：{p17o['thresholds']}")
         gp2 = st["params"].get("grand_prize")
         if gp2: L.append(f"🏆 革命大賞（常設）：{gp2}")
+        dpo = st["params"].get("death")
+        if dpo: L.append(f"☠️ 死亡ルール（ターン{dpo['since']}から）：{dpo['text']}")
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
         if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + (f"［共著：{'、'.join(w.get('co_authors', []))}／確認：{'、'.join(w.get('confirmed', [])) or 'なし'}］" if w.get('co_authors') else "") + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
         hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
