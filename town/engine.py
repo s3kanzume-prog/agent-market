@@ -37,6 +37,7 @@ WORK = {
     "吟遊詩人": (None, {}, {}),
     "牧師": (None, {}, {}),
     "学者": (None, {}, {}),
+    "数学者": ("役場", {}, {"検算書": 1}),
     "書記": ("役場", {}, {}),
 }
 SALARY = {"書記": 5}  # paid from the treasury when working
