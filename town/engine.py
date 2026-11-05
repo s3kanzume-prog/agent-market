@@ -69,6 +69,9 @@ def main(n):
     def bread_funds():  # p28: while the fund is low, keep one medicine's worth in reserve
         p28 = st["params"].get("p28")
         f = st.get("fund", 0)
+        if p28 and p28.get("only_if_sick"):  # p34: reserve only while someone is sick without medicine
+            if not any(R[o]["health"] in ("病気", "重病") and R[o]["inv"].get("薬", 0) < 1 for o in R if not R[o].get("departed")):
+                return f
         return f - p28["reserve"] if p28 and f < p28["below"] else f
     def has(who, items):
         if who in ("外部",):
