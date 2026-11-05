@@ -106,3 +106,8 @@
 
 ## p28（T87成立）
 - params.p28={below:30, reserve:13}。engine の bread_funds() で、基金30未満のあいだはパンの買い入れ・納品受付・直接/輸入パンの救済を「基金−13」の範囲に限る。薬の救済は基金全額を使える。T88に見直し。
+
+## 学者イオリ（ユーザーの指示、T91に登場）
+- T91の gm.json に turns/091/gm_pending.json（add_resident イオリ：学者、40コイン・パン12、図書館、visitorではない＝住人と同じく生活費・徴収・死亡ルール・投票・配給の対象）と告知 note を足す。
+- **T91の engine を実行したあと**、イオリのセッションを作る：model `claude-sonnet-5-5`、tags `["ai-town","ai-town-resident"]`、append_system_prompt は `town/scholar_prompt.md` の全文、prompt は `turns/091/observations/イオリ.md` の全文。session_id を `residents.json` の sessions に加え、以降は回収・送信の対象（9人）。
+- 学者は生産しない（WORK 学者=None）。相談は say/messages/post で、相談料は offers か give。1ターン2件まで（本人の決まり）。学者のひとりでの human_output は返礼・大賞の対象外とし、講評で「学者は共著者としてのみ」と伝える。共著（co_sign）は成立すれば通常どおり分け前。
