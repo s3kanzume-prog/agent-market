@@ -676,6 +676,31 @@ def main(n):
         if pay < lc:
             r["arrears"] += lc - pay; private[k].append(f"生活費を払えず、滞納が{r['arrears']}コインになった。")
             ev("arrears", who=k, total=r["arrears"])
+        lp_ = st["params"].get("lash")  # lash rule (user's order): N consecutive turns of unpaid living cost -> a lashing; 2nd lashing -> death
+        lash_cause = None
+        if lp_ and n >= lp_["since"]:
+            r["arrears_streak"] = r.get("arrears_streak", 0) + 1 if pay < lc else 0
+            if r["arrears_streak"] >= lp_["streak"]:
+                r["arrears_streak"] = 0; r["lashes"] = r.get("lashes", 0) + 1
+                ev("lashed", who=k, count=r["lashes"])
+                if r["lashes"] >= lp_["max"]:
+                    lash_cause = f"生活費の滞納が{lp_['streak']}ターン続き、{r['lashes']}回目の鞭打ちを受けた"
+                else:
+                    st["board"].append({"turn": n, "author": "役場", "text": f"【鞭打ち】{k}は生活費の滞納が{lp_['streak']}ターン続いたため、鞭打ち（{r['lashes']}回目）を受けた。次の鞭打ちで命を落とす。"})
+                    private[k].append(f"🩸 生活費の滞納が{lp_['streak']}ターン続いたため、鞭打ちを受けた（{r['lashes']}回目）。もう一度受けると亡くなる。")
+            elif r["arrears_streak"] >= 1:
+                private[k].append(f"⚠️ 鞭打ちルール：生活費を払えないターンが{r['arrears_streak']}ターン続いている（{lp_['streak']}ターン続くと鞭打ち。生活費{lc}コインを全額払えたターンで数え直し）。これまでの鞭打ち：{r.get('lashes', 0)}回（{lp_['max']}回目で死）。")
+        elif lp_ and n >= lp_["since"] - 3 and pay < lc:
+            private[k].append(f"⚠️ 鞭打ちルール（ターン{lp_['since']}から）：生活費を払えないターンが{lp_['streak']}ターン続くと鞭打ち、{lp_['max']}回目の鞭打ちで亡くなる。いまのあなたは生活費を払えていない。")
+        if lash_cause:
+            r["departed"] = True; r["died"] = True; r["departed_turn"] = n
+            c = r["coins"]
+            if c > 0: move_items(k, "外部", {COIN: c}); st["fund"] += c; ledger.append({"turn": n, "kind": "収入", "what": f"{k}の遺したコイン", "amount": c})
+            r["inv"] = {}
+            st["board"].append({"turn": n, "author": "役場", "text": f"【訃報】{k}（{r['job']}）が亡くなった（{lash_cause}）。遺したコイン{c}は共同備蓄基金に入り、持ち物は失われた。"})
+            private[k].append(f"あなたは亡くなった（{lash_cause}）。街での暮らしはここで終わる。")
+            ev("died", who=k, cause=lash_cause, coins=c)
+            continue
         dp = st["params"].get("death")  # death rule (announced in advance; active from dp["since"])
         if dp:
             cause = None
@@ -876,6 +901,8 @@ def observe(st, k, n, priv, heard, new_posts):
         if ono: L.append(f"⏱ 処理の順番（常設）：{ono}")
         dpo = st["params"].get("death")
         if dpo: L.append(f"☠️ 死亡ルール（ターン{dpo['since']}から）：{dpo['text']}")
+        lpo = st["params"].get("lash")
+        if lpo: L.append(f"🩸 鞭打ちルール（ターン{lpo['since']}から）：{lpo['text']}")
         hw = [w for w in st.get("human_works", []) if w["turn"] == n]
         if hw: L += ["", "**人間界へ届けられた新しい成果**"] + [f"- {w['author']}「{w['title']}」（対象：{clip(w['for_whom'], 80)}）" + (f"［共著：{'、'.join(w.get('co_authors', []))}／確認：{'、'.join(w.get('confirmed', [])) or 'なし'}］" if w.get('co_authors') else "") + ("（あなたの提出）" if w['author'] == k else f"：{clip(w['content'], 110)}") + (f"　［実証：{w['proof']['kind']}・{w['proof']['plan']}］" if w.get('proof') else "") for w in hw]
         hl = [x for x in st.get("human_letters", []) if x["turn"] == n]
