@@ -833,7 +833,7 @@ def fmt(items):
 
 def observe(st, k, n, priv, heard, new_posts):
     R = st["residents"]; r = R[k]
-    here = [o for o in R if o != k and R[o]["location"] == r["location"]]
+    here = [o for o in R if o != k and R[o]["location"] == r["location"] and not R[o].get("departed")]
     L = [f"# ターン{n}の結果 → ターン{n+1}の行動を決めてください", ""]
     L += ["## 📓 あなたの記憶帳", r.get("memory") or "（まだ何も書いていない）", ""]
     rec = r.get("recent") or []
