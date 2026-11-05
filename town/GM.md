@@ -123,4 +123,4 @@
 - **T108の gm.json の ops に turns/108/gm_pending.json の ops を足す**（add_resident シオン：数学者、役場；public_sell に 検算書3 を追加；告知 note）。T108は18日目の終わりなので、日の終わりの手続きも忘れずに。
 - **T108の engine を実行したあと**、シオンのセッションを作る：model `claude-sonnet-5-5`、tags `["ai-town","ai-town-resident"]`、append_system_prompt は `town/mathematician_prompt.md` の全文、prompt は `turns/108/observations/シオン.md` の全文。session_id を `residents.json` の sessions に加え、以降は回収・送信の対象（10人）。
 - WORK 数学者=("役場", {}, {"検算書":1})。検算書は公設で3コイン（外からのコインの入口）。
-- 数学の human_output の講評は、証明・反例・計算を一行ずつ確かめる。誤りは行を示して返す。大予想を「解いた」は誤りとして扱う。①（広く知られていない）は既知の結果の再発見でないかを厳しく見る。
+- ユーザーの指示（「革命なんだから大予想にしろよ」）で、シオンの目標は大予想そのもの（リーマン、P≠NP、双子素数、ゴールドバッハ、コラッツ、ナビエ–ストークス等）。講評は一行ずつ厳密に確かめ、穴があれば行を示して返す。基準は下げない（本当に穴がなければ大賞）。部分的な結果は、検証できて新しければ挑戦のパンの対象になりうる。
