@@ -256,6 +256,9 @@ def main(n):
         e = ev("work", who=k, job=r["job"], made=gain)
         if r["job"] in SALARY:
             sal = SALARY[r["job"]]
+            p35 = st["params"].get("p35")  # p35: reduced scribe salary while treasury is low
+            if p35 and r["job"] == "書記" and n <= p35["until"] and st["treasury"] < p35["below"]:
+                sal = p35["amount"]
             if st["treasury"] >= sal:
                 move_items("金庫", k, {COIN: sal}); private[k].append(f"🏛 {r['job']}の給金{sal}コインを金庫から受け取った。")
                 ev("salary", who=k, amount=sal)
